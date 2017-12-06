@@ -38,9 +38,9 @@ class PulseCodingModulation(object):
         '''
         Converts pulse density modulation to pulse coding modulation.
         '''
-        x = 2 * x - 1
+        y = 2 * x - 1
         for i in range(2):
-            y = signal.decimate(x, 8, ftype = 'iir', zero_phase = True)
+            y = signal.decimate(y, 8, ftype = 'iir', zero_phase = True)
         return y
 
 
