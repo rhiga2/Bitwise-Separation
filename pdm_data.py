@@ -15,7 +15,6 @@ class PulseDensityModulation(object):
         I would like to have a less sequential transformation.
         More details: https://en.wikipedia.org/wiki/Pulse-density_modulation
         '''
-        pdb.set_trace()
         x = librosa.core.resample(x, self.old_sr, self.new_sr)
         y = []
         qe = 0 # quantization error
@@ -40,6 +39,7 @@ class PulseCodingModulation(object):
         Converts pulse density modulation to pulse coding modulation.
         '''
         y = 2 * x - 1
+        pdb.set_trace()
         for i in range(2):
             y = signal.decimate(y, 8, ftype = 'iir', zero_phase = True)
         return y
