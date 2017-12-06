@@ -27,7 +27,7 @@ class PulseDensityModulation(object):
                 y.append(-1)
             qe = y[i] - x[i] + qe
         y = (np.array(y) + 1) // 2
-        return np.array(y)
+        return np.array(y).astype(np.float32)
 
 class PulseCodingModulation(object):
     def __init__(self, downsample_factor = 64):
@@ -41,7 +41,7 @@ class PulseCodingModulation(object):
         y = signal.decimate(y, self.downsample_factor, ftype = 'fir', zero_phase = True)
         # for i in range(2):
         #     y = signal.decimate(y, 8, 8, ftype = 'iir', zero_phase = True)
-        return y
+        return y.astype(np.float32)
 
 
 def main():
@@ -54,24 +54,29 @@ def main():
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
-    dataset = DenoisingDataset(speaker_path, noise_path, duration=3,
-    num_speakers=12, noise_set=noise_set, transform=pdm)
+    dataset = DenoisingDataset(speaker_path, noise_path, duration=None,
+    num_speakers=5, noise_set=noise_set, transform=pdm)
     print('Length Training Set: ', len(dataset))
-    print('Length Validation Set: ', len(valset))
 
     # Test PDM-PCM conversion
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
-    recovered_mix = pcm(pdm_mix)
+    recovered_mix = pcm(mixture)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
 
-    for i, mixture, speech in enumerate(dataset):
+    for i in range(len(dataset)):
+        mixture, speech = dataset[i]
+        mixture = mixture.numpy().astype(bool)
+        speech = speech.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/train%d' % (i,), mixture=mixture,
                  speech=speech)
 
     valset = dataset.getvalset()
-    for i, data in enumerate(valset):
-        mixture, speech, noise = data
+    for i in range(len(valset)):
+        mixture, speech, noise = data[i]
+        mixture = mixture.numpy().astype(bool)
+        speech = speech.numpy().astype(bool)
+        noise = noise.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
                  speech=speech, noise=noise)
 

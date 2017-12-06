@@ -8,7 +8,7 @@ import random
 import pdb
 
 class DenoisingDataset(Dataset):
-    def __init__(self, speaker_path, noise_path, duration = 3, sr = 16000,
+    def __init__(self, speaker_path, noise_path, duration = None, sr = 16000,
                  snr = 0, random_start = True, num_speakers = 5,
                  noise_set = None, speech_split = 8, noise_split = 4,
                  transform = None):
@@ -41,25 +41,25 @@ class DenoisingDataset(Dataset):
         speakers = glob2.glob(speaker_path + '/*')
         random.shuffle(speakers)
         speakers = speakers[:num_speakers - 1]
-        speech_files = []
+        train_speech = []
+        val_speech = []
         for speaker in speakers:
-            speech_files.extend(glob2.glob(speaker + '/*.wav'))
-            train_speech = speech_files[:speech_split]
-            val_speech = speech_files[speech_split:]
+            files = glob2.glob(speaker + '/*.wav')
+            train_speech.extend(files[:speech_split])
+            val_speech.extend(files[speech_split:])
 
-        train_speech= [f for f in train_speech \
-                        if librosa.core.get_duration(filename=f) > self.duration]
+        if duration is not None:
+            train_speech = [f for f in train_speech \
+                           if librosa.core.get_duration(filename=f) > self.duration]
 
-        val_speech = [f for f in val_speech \
-                        if librosa.core.get_duration(filename=f) > self.duration]
+            val_speech = [f for f in val_speech \
+                         if librosa.core.get_duration(filename=f) > self.duration]
 
         if not noise_set:
             noise_files = glob2.glob(noise_path + '/*.wav')
         else:
             noise_files = [noise_path + '/' + noise for noise in noise_set]
 
-        noise_files = [f for f in noise_files \
-                       if librosa.core.get_duration(filename=f) > self.duration]
         random.shuffle(noise_files)
         train_noise = noise_files[:noise_split]
         val_noise = noise_files[noise_split:]
@@ -73,14 +73,17 @@ class DenoisingDataset(Dataset):
     def _getmix(self, sfile, nfile):
         soffset = 0
         noffset = 0
-        if self.random_start:
-            soffset = np.random.random() * (librosa.core.get_duration(filename=sfile) - self.duration)
-            noffset = np.random.random() * (librosa.core.get_duration(filename=nfile) - self.duration)
+        sduration = librosa.core.get_duration(filename=sfile)
+        nduration = librosa.core.get_duration(filename=nfile)
+        if self.random_start and self.duration is not None:
+            soffset = np.random.random() * (sduration - self.duration)
+            sduration = min(sduration, self.duration)
+        noffset = np.random.random() * (nduration - sduration)
 
         # Read files
         saudio, _ = librosa.core.load(sfile, sr=self.sr, duration=self.duration, offset=soffset,
                                    res_type='kaiser_fast')
-        naudio, _ = librosa.core.load(nfile, sr=self.sr, duration=self.duration, offset=noffset,
+        naudio, _ = librosa.core.load(nfile, sr=self.sr, duration=sduration, offset=noffset,
                                    res_type='kaiser_fast')
 
         # Deal with stereo noises
@@ -93,9 +96,9 @@ class DenoisingDataset(Dataset):
         mixture = saudio + naudio
 
         if self.transform:
-            mixture, _ = self.transform(mixture)
-            saudio, _ = self.transform(saudio)
-            naudio, _ = self.transform(naudio)
+            mixture = self.transform(mixture)
+            saudio = self.transform(saudio)
+            naudio = self.transform(naudio)
 
         return mixture, saudio, naudio,
 
