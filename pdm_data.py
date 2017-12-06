@@ -2,6 +2,7 @@ import numpy as np
 import librosa
 import scipy.signal as signal
 from denoising_data import DenoisingDataset
+import matplotlib.pyplot as plt
 import pdb
 
 class PulseDensityModulation(object):
@@ -15,7 +16,7 @@ class PulseDensityModulation(object):
         I would like to have a less sequential transformation.
         More details: https://en.wikipedia.org/wiki/Pulse-density_modulation
         '''
-        x = librosa.core.resample(x, self.old_sr, self.new_sr)
+        x = librosa.core.resample(x, self.old_sr, self.new_sr, res_type = 'scipy')
         y = []
         qe = 0 # quantization error
         for i in range(x.shape[0]):
@@ -28,20 +29,17 @@ class PulseDensityModulation(object):
         return np.array(y)
 
 class PulseCodingModulation(object):
-    def __init__(self):
-        '''
-
-        '''
-        self.downsample_factor = 64
+    def __init__(self, downsample_factor = 64):
+        self.downsample_factor = downsample_factor
 
     def __call__(self, x):
         '''
         Converts pulse density modulation to pulse coding modulation.
         '''
         y = 2 * x - 1
-        y = signal.decimate(y, 64, ftype = 'fir', zero_phase = True)
+        y = signal.decimate(y, self.downsample_factor, ftype = 'fir', zero_phase = True)
         # for i in range(2):
-        #    y = signal.decimate(y, 8, ftype = 'iir', zero_phase = True)
+        #     y = signal.decimate(y, 8, 8, ftype = 'iir', zero_phase = True)
         return y
 
 
@@ -55,7 +53,7 @@ def main():
 
     # Test PDM-PCM conversion
     pdm = PulseDensityModulation(16000, 1024000)
-    pcm = PulseCodingModulation()
+    pcm = PulseCodingModulation(64)
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
     librosa.output.write_wav('results/sample.wav', mixture, 16000, norm = True)
