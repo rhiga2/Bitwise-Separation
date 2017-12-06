@@ -39,9 +39,9 @@ class PulseCodingModulation(object):
         Converts pulse density modulation to pulse coding modulation.
         '''
         y = 2 * x - 1
-        pdb.set_trace()
-        for i in range(2):
-            y = signal.decimate(y, 8, ftype = 'iir', zero_phase = True)
+        y = signal.decimate(y, 64, ftype = 'fir', zero_phase = True)
+        # for i in range(2):
+        #    y = signal.decimate(y, 8, ftype = 'iir', zero_phase = True)
         return y
 
 
