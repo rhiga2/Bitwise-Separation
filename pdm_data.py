@@ -2,6 +2,7 @@ import numpy as np
 import librosa
 import scipy.signal as signal
 from denoising_data import DenoisingDataset
+import pdb
 
 class PulseDensityModulation(object):
     def __init__(self, old_sr, new_sr):
@@ -44,6 +45,7 @@ def main():
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
+    pdb.set_trace()
     dataset = DenoisingDataset(speaker_path, noise_path, noise_set = noise_set)
     print('Length: ', len(dataset))
 
@@ -55,3 +57,6 @@ def main():
     pdm_mix = pdm(mixture)
     recovered_mix = pcm(pdm_mix)
     librosa.output.write_wav('results/sample_pdm.wav', recovered_mix, 16000, norm = True)
+
+if __name__ == '__main__':
+    main()
