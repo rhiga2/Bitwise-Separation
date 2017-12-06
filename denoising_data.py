@@ -8,7 +8,7 @@ import random
 import pdb
 
 class DenoisingDataset(Dataset):
-    def __init__(self, speaker_path, noise_path, duration = 4, sr = 16000,
+    def __init__(self, speaker_path, noise_path, duration = 3, sr = 16000,
                  snr = 0, random_start = True, num_speakers = 5,
                  noise_set = None, speech_split = 8, noise_split = 4,
                  transform = None):
