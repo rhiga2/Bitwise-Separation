@@ -36,7 +36,7 @@ class PulseCodingModulation(object):
         Converts pulse density modulation to pulse coding modulation.
         '''
         x = 2 * x - 1
-        y = signal.decimate(x, self.downsample_factor, ftype = 'fir')
+        y = signal.decimate(x, self.downsample_factor, ftype = 'fir', zero_phase = True)
         return y
 
 
