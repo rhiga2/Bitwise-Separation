@@ -46,7 +46,7 @@ class PulseCodingModulation(object):
 def main():
     sr = 16000
     oversample = 64
-    '''
+    
     speaker_path = '/media/data/timit-wav/train/dr1'
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
@@ -55,16 +55,18 @@ def main():
     print('Length: ', len(dataset))
 
     # Test PDM-PCM conversion
-    mixture, saudio = dataset[0]
-    mixture = mixture.numpy()
-    '''
+    mixture1, saudio = dataset[0]
+    mixture1 = mixture1.numpy()
+    mixture1 = mixture1 / np.max(np.abs(mixture1))
+    librosa.output.write_wav('results/sample.wav', mixture1, sr, norm = True)
+   
     pdm = PulseDensityModulation(sr, oversample * sr)
     pcm = PulseCodingModulation(oversample)
-    mixture, _ = librosa.core.load('results/sample.wav', sr=sr, offset=0, res_type='kaiser_fast')
-    # librosa.output.write_wav('results/sample.wav', mixture, sr, norm = True)
-    pdm_mix = pdm(mixture)
+    mixture2, _ = librosa.core.load('results/sample.wav', sr=sr, offset=0, res_type='kaiser_fast')
+    print('Mean Difference: ', np.mean((mixture1 - mixture2)**2))
+    pdm_mix = pdm(mixture1)
     recovered_mix = pcm(pdm_mix)
-    librosa.output.write_wav('results/recovered2.wav', recovered_mix, sr, norm = True)
+    librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
 
 if __name__ == '__main__':
     main()
