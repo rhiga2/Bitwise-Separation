@@ -16,6 +16,7 @@ class PulseDensityModulation(object):
         I would like to have a less sequential transformation.
         More details: https://en.wikipedia.org/wiki/Pulse-density_modulation
         '''
+        x = x / np.max(np.abs(x))
         x = librosa.core.resample(x, self.old_sr, self.new_sr, res_type = 'scipy')
         y = []
         qe = 0 # quantization error
@@ -46,27 +47,33 @@ class PulseCodingModulation(object):
 def main():
     sr = 16000
     oversample = 64
-    
+
+    pdm = PulseDensityModulation(sr, oversample * sr)
+    pcm = PulseCodingModulation(oversample)
     speaker_path = '/media/data/timit-wav/train/dr1'
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
-    dataset = DenoisingDataset(speaker_path, noise_path, noise_set = noise_set)
-    print('Length: ', len(dataset))
+    dataset = DenoisingDataset(speaker_path, noise_path, duration=3,
+    num_speakers=12, noise_set=noise_set, transform=pdm)
+    print('Length Training Set: ', len(dataset))
+    print('Length Validation Set: ', len(valset))
 
     # Test PDM-PCM conversion
-    mixture1, saudio = dataset[0]
-    mixture1 = mixture1.numpy()
-    mixture1 = mixture1 / np.max(np.abs(mixture1))
-    librosa.output.write_wav('results/sample.wav', mixture1, sr, norm = True)
-   
-    pdm = PulseDensityModulation(sr, oversample * sr)
-    pcm = PulseCodingModulation(oversample)
-    mixture2, _ = librosa.core.load('results/sample.wav', sr=sr, offset=0, res_type='kaiser_fast')
-    print('Mean Difference: ', np.mean((mixture1 - mixture2)**2))
-    pdm_mix = pdm(mixture1)
+    mixture, saudio = dataset[0]
+    mixture = mixture.numpy()
     recovered_mix = pcm(pdm_mix)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
+
+    for i, mixture, speech in enumerate(dataset):
+        np.savez('/media/data/bitwise_pdm/train%d' % (i,), mixture=mixture,
+                 speech=speech)
+
+    valset = dataset.getvalset()
+    for i, data in enumerate(valset):
+        mixture, speech, noise = data
+        np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
+                 speech=speech, noise=noise)
 
 if __name__ == '__main__':
     main()
