@@ -59,6 +59,10 @@ def main():
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
     librosa.output.write_wav('results/sample.wav', mixture, sr, norm = True)
+    resample = librosa.core.resample(mixture, sr, oversample * sr, res_type = 'scipy')
+    print('Sampled Size: ', mixture.shape)
+    print('Resampled Size: ', resample.shape)
+    librosa.output.write_wav('results/resample.wav', resample, oversample * sr, norm = True)
     pdm_mix = pdm(mixture)
     recovered_mix = pcm(pdm_mix)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
