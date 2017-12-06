@@ -28,15 +28,19 @@ class PulseDensityModulation(object):
         return np.array(y)
 
 class PulseCodingModulation(object):
-    def __init__(self, downsample_factor):
-        self.downsample_factor = downsample_factor
+    def __init__(self):
+        '''
+        
+        '''
+        self.downsample_factor = 64
 
     def __call__(self, x):
         '''
         Converts pulse density modulation to pulse coding modulation.
         '''
         x = 2 * x - 1
-        y = signal.decimate(x, self.downsample_factor, ftype = 'fir', zero_phase = True)
+        for i in range(2):
+            y = signal.decimate(x, 8, ftype = 'iir', zero_phase = True)
         return y
 
 
@@ -51,7 +55,7 @@ def main():
 
     # Test PDM-PCM conversion
     pdm = PulseDensityModulation(16000, 1024000)
-    pcm = PulseCodingModulation(64)
+    pcm = PulseCodingModulation()
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
     librosa.output.write_wav('results/sample.wav', mixture, 16000, norm = True)
