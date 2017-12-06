@@ -54,9 +54,10 @@ def main():
     pcm = PulseCodingModulation(64)
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
+    librosa.output.write_wav('results/sample.wav', mixture, 16000, norm = True)
     pdm_mix = pdm(mixture)
     recovered_mix = pcm(pdm_mix)
-    librosa.output.write_wav('results/sample_pdm.wav', recovered_mix, 16000, norm = True)
+    librosa.output.write_wav('results/recovered.wav', recovered_mix, 16000, norm = True)
 
 if __name__ == '__main__':
     main()
