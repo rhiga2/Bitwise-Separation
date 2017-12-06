@@ -15,22 +15,23 @@ class PulseDensityModulation(object):
         I would like to have a less sequential transformation.
         More details: https://en.wikipedia.org/wiki/Pulse-density_modulation
         '''
+        pdb.set_trace()
         x = librosa.core.resample(x, self.old_sr, self.new_sr)
         y = []
-        qe = [0] # quantization error
+        qe = 0 # quantization error
         for i in range(x.shape[0]):
-            if x[i] >= qe[i]:
+            if x[i] >= qe:
                 y.append(1)
             else:
                 y.append(-1)
-            qe.append(y[i] - x[i] + qe[i])
+            qe = y[i] - x[i] + qe
         y = (np.array(y) + 1) // 2
         return np.array(y)
 
 class PulseCodingModulation(object):
     def __init__(self):
         '''
-        
+
         '''
         self.downsample_factor = 64
 
@@ -49,7 +50,6 @@ def main():
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
-    pdb.set_trace()
     dataset = DenoisingDataset(speaker_path, noise_path, noise_set = noise_set)
     print('Length: ', len(dataset))
 
