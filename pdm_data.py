@@ -45,7 +45,7 @@ class PulseCodingModulation(object):
 
 def main():
     sr = 16000
-    oversample = 64
+    oversample = 128
     speaker_path = '/media/data/timit-wav/train/dr1'
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
