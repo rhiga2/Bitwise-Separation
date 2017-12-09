@@ -7,6 +7,7 @@ import glob2
 import tqdm
 import mir_eval
 import pdm_data
+import numpy as np
 
 '''
 Real network trained for denoising
@@ -25,21 +26,19 @@ class BitwiseDataset(Dataset):
     def __getitem__(self, i):
         dfile = self.trainfiles[i]
         data = np.load(dfile)
-        mix = data['mixture']
-        speech = data['speech']
+        mix = data['mixture'].astype(float)
+        speech = data['speech'].astype(float)
         return {'targets': torch.FloatTensor(speech),
                 'features' : torch.FloatTensor(mix)}
 
     def getvalset(self):
         mixes = []
-        speeches = []
-        noises = []
+        targets = []
         for f in self.valfiles:
             data = np.load(f)
-            mixes.append(torch.FloatTensor(data['mixture']))
-            speeches.append(torch.FloatTensor(data['speech']))
-            noises.append(torch.FloatTensor(data['noise']))
-        return mixes, speeches, noises
+            mixes.append(torch.FloatTensor(data['mixture'].astype(float)))
+            targets.append(torch.FloatTensor(data['target'].astype(float)))
+        return mixes, targets
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=5,
@@ -52,14 +51,14 @@ class SeparationNetwork(nn.Module):
         # Double transform
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
-        self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, pad=3)
+        self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
         self.conv_bn2 = nn.BatchNorm2d(num_channels)
 
         # Fully connected layers
         self.linear1 = nn.Linear(num_channels * transform_size, 2 * transform_size)
         self.linear_bn1 = nn.BatchNorm1d(2 * transform_size)
         self.linear2 = nn.Linear(2 * transform_size, transform_size)
-        self.conv_transpose = nn.Conv1Transpose1(transform_size, 1, transform_size, stride=hop)
+        self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
 
     def forward(self, X):
         # (batch, 1, time)
@@ -119,7 +118,7 @@ def main():
     # Instantiate optimizer and loss
     torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
     criterion = nn.MSELoss()
-    mixtures, speechs, noises = dataset.getvalset()
+    mixtures, targets = dataset.getvalset()
 
     for epoch in range(args.epochs):
         train_loss = 0
@@ -142,7 +141,7 @@ def main():
             net.eval()
             for i in range(dataset.lenval()):
                 x = Variable(mixtures[i])
-                y = Variable(speechs[i])
+                y = Variable(targets[i][0])
                 est = net(x)
 
                 loss = criterion(est, y)
@@ -150,7 +149,7 @@ def main():
                 mixture =  pcm(x.data.numpy()[0])
                 speech = pcm(y.data.numpy()[0])
                 speech_estimate = pcm(est.data.numpy()[0])
-                noise = pcm(noises[i].data.numpy()[0])
+                noise = pcm(targets[i][1].data.numpy()[0])
                 sdr, sir, sar = evaluate(mixture, speech, speech_estimate, noise)
                 print('Validation Metrics: ', sdr, sir, sar)
 
