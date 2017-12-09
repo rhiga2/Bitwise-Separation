@@ -81,7 +81,7 @@ def main():
         target = target.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
                  target=target)
-        i += 0
+        i += 1
 
 if __name__ == '__main__':
     main()
