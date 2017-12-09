@@ -57,28 +57,31 @@ def main():
     dataset = DenoisingDataset(speaker_path, noise_path, duration=None,
     num_speakers=5, noise_set=noise_set, transform=pdm)
     print('Length Training Set: ', len(dataset))
+    print('Get Validation Set: ', dataset.lenval())
 
     # Test PDM-PCM conversion
+    '''
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
     recovered_mix = pcm(mixture)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
-
+   
     for i in range(len(dataset)):
         mixture, speech = dataset[i]
         mixture = mixture.numpy().astype(bool)
         speech = speech.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/train%d' % (i,), mixture=mixture,
                  speech=speech)
-
-    valset = dataset.getvalset()
-    for i in range(len(valset)):
-        mixture, speech, noise = data[i]
+    '''
+    i = 0
+    mixtures, targets = dataset.getvalset()
+    print(len(mixtures), len(targets))
+    for mixture, target in zip(mixtures, targets):
         mixture = mixture.numpy().astype(bool)
-        speech = speech.numpy().astype(bool)
-        noise = noise.numpy().astype(bool)
+        target = target.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
-                 speech=speech, noise=noise)
+                 target=target)
+        i += 0
 
 if __name__ == '__main__':
     main()
