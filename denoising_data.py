@@ -70,6 +70,9 @@ class DenoisingDataset(Dataset):
     def __len__(self):
         return len(self.train)
 
+    def lenval(self):
+        return len(self.val)
+
     def _getmix(self, sfile, nfile):
         soffset = 0
         noffset = 0
@@ -100,7 +103,7 @@ class DenoisingDataset(Dataset):
             saudio = self.transform(saudio)
             naudio = self.transform(naudio)
 
-        return mixture, saudio, naudio,
+        return mixture, saudio, naudio
 
     def __getitem__(self, i):
         # Notation
