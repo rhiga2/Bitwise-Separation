@@ -2,12 +2,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from torch.autograd import Variable
+import torch.optim as optim
 import argparse
 import glob2
 import tqdm
 import mir_eval
 import pdm_data
 import numpy as np
+import pdb
 
 '''
 Real network trained for denoising
@@ -25,9 +28,7 @@ class BitwiseDataset(Dataset):
         mix = data['mixture'].astype(np.float32)
         speech = data['speech'].astype(np.float32)
         noise = data['noise'].astype(np.float32)
-        return {'noise': torch.FloatTesnor(noise),
-                'speech': torch.FloatTensor(speech),
-                'mixture' : torch.FloatTensor(mix)}
+        return {'noise': noise, 'speech': speech, 'mixture' : mix}
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=5,
@@ -45,33 +46,33 @@ class SeparationNetwork(nn.Module):
 
         # Fully connected layers
         self.linear1 = nn.Linear(num_channels * transform_size, 2 * transform_size)
-        self.linear_bn1 = nn.BatchNorm1d(2 * transform_size)
+        # self.linear_bn1 = nn.BatchNorm1d(2 * transform_size)
         self.linear2 = nn.Linear(2 * transform_size, transform_size)
         self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
 
-    def forward(self, X):
+    def forward(self, x):
         # (batch, 1, time)
         x = x.unsqueeze(1)
-        h = self.activation(self.conv1d(x))
-        h = self.conv_bn1(h)
+        x = self.activation(self.transform1d(x))
+        x = self.conv_bn1(x)
 
         # (batch, transform, frame) to (batch, 1, transform, frame)
-        h = h.unsqueeze(1)
-        h = self.activation(self.smooth(h))
-        h = self.conv_bn2(H)
+        x = x.unsqueeze(1)
+        x = self.activation(self.smooth(x))
+        x = self.conv_bn2(x)
 
         # (batch, channels, transform, frames) to (batch, frames, channels * transform)
-        batch_size, _, _, frames = h.size()[0]
-        h = h.permute(0, 3, 1, 2).view(batch_size, frames, -1).contiguous()
-        h = self.activation(self.linear1(h))
-        h = self.linear_bn1(h)
-        h = self.linear2(h)
+        batch_size, _, _, frames = x.size()
+        x = x.permute(0, 3, 1, 2).contiguous().view(batch_size, frames, -1)
+        x = self.activation(self.linear1(x))
+        # h = self.linear_bn1(h)
+        x = self.linear2(x)
 
         # (batch, frames, transform) to (batch, transform, frames)
-        h = h.permute(0, 2, 1).contiguous()
-        y = self.conv_transpose(h)
-        y = y.squeeze(1)
-        return y
+        x = x.permute(0, 2, 1).contiguous()
+        x = self.conv_transpose(x)
+        x = x.squeeze(1)
+        return x
 
 def evaluate(speech, speech_estimate, noise, noise_estimate):
     references = np.stack(speech, noise)
@@ -81,7 +82,7 @@ def evaluate(speech, speech_estimate, noise, noise_estimate):
     return sdr[0], sir[0], sar[0]
 
 def main():
-    parser = argparse.ArgumentParser( description='Bitwise Network')
+    parser = argparse.ArgumentParser(description='Bitwise Network')
     parser.add_argument('--epochs', '-e', type=int, default=10000,
                         help='Number of epochs')
     parser.add_argument('--learningrate', '-lr', type=float, default=1e-4,
@@ -100,47 +101,45 @@ def main():
     # Instantiate Network
     net = SeparationNetwork()
     net = torch.nn.DataParallel( net, device_ids=[0,1])
-    net = net.cuda()
+    net = net.cuda().half()
 
     # Instantiate progress bar
     # progess_bar = tqdm.trange(args.epochs)
     pcm = pdm_data.PulseCodingModulation()
 
     # Instantiate optimizer and loss
-    torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
+    optimizer = torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
     criterion = nn.MSELoss()
 
     for epoch in range(args.epochs):
         train_loss = 0
         net.train()
         for batch_count, batch in enumerate(dataloader):
-            x = Variable(batch['features'])
-            y = Variable(batch['targets'])
+            x = Variable(batch['mixture'].cuda().half())
+            y = Variable(batch['speech'].cuda().half())
             est = net(x)
 
             loss = criterion(est, y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            train_loss += loss.data.numpy()[0]
-
-        # print('Train Loss ': train_loss)
+            train_loss += loss.data.cpu().float().numpy()[0]
 
         if (epoch + 1) % 10 == 0:
             val_loss = 0
             net.eval()
             for i in range(len(valset)):
                 data = valset[i]
-                x = Variable(data['mixture'])
-                y = Variable(data['speech'])
+                x = Variable(data['mixture'].cuda().half())
+                y = Variable(data['speech'].cuda.half())
                 est = net(x)
 
                 loss = criterion(est, y)
-                val_loss += loss.data.numpy()[0]
-                mixture =  pcm(x.data.numpy()[0])
-                speech = pcm(y.data.numpy()[0])
-                speech_estimate = pcm(est.data.numpy()[0])
-                noise = pcm(data['noise'].numpy()[0])
+                val_loss += loss.data.cpu().float().numpy()[0]
+                mixture =  pcm(data['mixture'])
+                speech = pcm(data['speech'])
+                speech_estimate = pcm(est.data.cpu().float().numpy())
+                noise = pcm(data['noise'])
                 noise_estimate = mixture - speech_estimate
                 sdr, sir, sar = evaluate(speech, speech_estimate, noise, noise_estimate)
                 print('Validation Metrics: ', sdr, sir, sar)
