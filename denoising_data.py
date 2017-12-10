@@ -54,7 +54,7 @@ class DenoisingDataset(Dataset):
             noise_files = [noise_path + '/' + noise for noise in noise_set]
         random.shuffle(noise_files)
 
-        self.mixes = list(itertools.product(train_speech, train_noise))
+        self.mixes = list(itertools.product(speech, noise_files))
 
     def __len__(self):
         return len(self.mixes)
@@ -68,7 +68,7 @@ class DenoisingDataset(Dataset):
             soffset = np.random.random() * (sduration - self.duration)
             sduration = min(sduration, self.duration)
 
-        if self.random_state:
+        if self.random_start:
             noffset = np.random.random() * (nduration - sduration)
 
         # Read files
@@ -100,8 +100,7 @@ class DenoisingDataset(Dataset):
         sfile, nfile = self.mixes[i]
         mixture, saudio, naudio = self._getmix(sfile, nfile)
 
-        return torch.FloatTensor(mixture), torch.FloatTensor(saudio),
-               torch.FloatTensor(naudio)
+        return torch.FloatTensor(mixture), torch.FloatTensor(saudio), torch.FloatTensor(naudio)
 
 def main():
     speaker_path = '/media/data/timit-wav/train/dr1'
