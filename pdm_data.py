@@ -85,6 +85,6 @@ def main():
         noise = noise.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
                  speech=speech, noise=noise)
-                 
+
 if __name__ == '__main__':
     main()

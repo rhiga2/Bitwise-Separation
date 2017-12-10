@@ -13,32 +13,21 @@ import numpy as np
 Real network trained for denoising
 '''
 class BitwiseDataset(Dataset):
-    def __init__(self, path):
-        self.trainfiles = glob2.glob(path + '/train*.npz')
-        self.valfiles = glob2.glob(path + '/val*.npz')
+    def __init__(self, pattern):
+        self.files = glob2.glob(pattern)
 
     def __len__(self):
-        return len(self.trainfiles)
-
-    def lenval(self):
-        return len(self.valfiles)
+        return len(self.files)
 
     def __getitem__(self, i):
-        dfile = self.trainfiles[i]
+        dfile = self.files[i]
         data = np.load(dfile)
-        mix = data['mixture'].astype(float)
-        speech = data['speech'].astype(float)
-        return {'targets': torch.FloatTensor(speech),
-                'features' : torch.FloatTensor(mix)}
-
-    def getvalset(self):
-        mixes = []
-        targets = []
-        for f in self.valfiles:
-            data = np.load(f)
-            mixes.append(torch.FloatTensor(data['mixture'].astype(float)))
-            targets.append(torch.FloatTensor(data['target'].astype(float)))
-        return mixes, targets
+        mix = data['mixture'].astype(np.float32)
+        speech = data['speech'].astype(np.float32)
+        noise = data['noise'].astype(np.float32)
+        return {'noise': torch.FloatTesnor(noise),
+                'speech': torch.FloatTensor(speech),
+                'mixture' : torch.FloatTensor(mix)}
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=5,
@@ -84,8 +73,7 @@ class SeparationNetwork(nn.Module):
         y = y.squeeze(1)
         return y
 
-def evaluate(mixture, speech, speech_estimate, noise):
-    noise_estimate = mixture - speech_estimate
+def evaluate(speech, speech_estimate, noise, noise_estimate):
     references = np.stack(speech, noise)
     estimates = np.stack(speech_estimate, noise_estimate)
     sdr, sir, sar = mir_eval.separation.bss_eval_sources(references, estimates,
@@ -102,9 +90,12 @@ def main():
                         help='Batch Size')
     args = parser.parse_args()
 
+    datapath = '/media/data/bitwise_pdm'
+
     # Dataset
-    dataset = BitwiseDataset('/media/data/bitwise_pdm')
-    dataloader = DataLoader(dataset, batch_size = args.batchsize, shuffle = True)
+    trainset = BitwiseDataset(datapath + '/train*.npz')
+    valset = BitwiseDataset(datapath + '/val*.npz')
+    dataloader = DataLoader(trainset, batch_size = args.batchsize, shuffle = True)
 
     # Instantiate Network
     net = SeparationNetwork()
@@ -118,7 +109,6 @@ def main():
     # Instantiate optimizer and loss
     torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
     criterion = nn.MSELoss()
-    mixtures, targets = dataset.getvalset()
 
     for epoch in range(args.epochs):
         train_loss = 0
@@ -139,9 +129,10 @@ def main():
         if (epoch + 1) % 10 == 0:
             val_loss = 0
             net.eval()
-            for i in range(dataset.lenval()):
-                x = Variable(mixtures[i])
-                y = Variable(targets[i][0])
+            for i in range(len(valset)):
+                data = valset[i]
+                x = Variable(data['mixture'])
+                y = Variable(data['speech'])
                 est = net(x)
 
                 loss = criterion(est, y)
@@ -149,8 +140,9 @@ def main():
                 mixture =  pcm(x.data.numpy()[0])
                 speech = pcm(y.data.numpy()[0])
                 speech_estimate = pcm(est.data.numpy()[0])
-                noise = pcm(targets[i][1].data.numpy()[0])
-                sdr, sir, sar = evaluate(mixture, speech, speech_estimate, noise)
+                noise = pcm(data['noise'].numpy()[0])
+                noise_estimate = mixture - speech_estimate
+                sdr, sir, sar = evaluate(speech, speech_estimate, noise, noise_estimate)
                 print('Validation Metrics: ', sdr, sir, sar)
 
 if __name__ == '__main__':
