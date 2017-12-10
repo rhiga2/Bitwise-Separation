@@ -1,15 +1,17 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 from torch.autograd import Variable
-import torch.optim as optim
+
 import argparse
 import glob2
 import tqdm
 import mir_eval
 import pdm_data
-import numpy as np
+import visdom
 import pdb
 
 '''
@@ -96,7 +98,8 @@ def main():
     # Dataset
     trainset = BitwiseDataset(datapath + '/train*.npz')
     valset = BitwiseDataset(datapath + '/val*.npz')
-    dataloader = DataLoader(trainset, batch_size = args.batchsize, shuffle = True)
+    trainloader = DataLoader(trainset, batch_size = args.batchsize, shuffle = True)
+    valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
     # Instantiate Network
     net = SeparationNetwork()
@@ -104,17 +107,20 @@ def main():
     net = net.cuda().half()
 
     # Instantiate progress bar
-    # progess_bar = tqdm.trange(args.epochs)
+    progess_bar = tqdm.trange(args.epochs)
     pcm = pdm_data.PulseCodingModulation()
 
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
     criterion = nn.MSELoss()
 
-    for epoch in range(args.epochs):
+    # Instantiate Visdom
+    vis = visdom.Visdom(port=5800)
+
+    for epoch in progress_bar:
         train_loss = 0
         net.train()
-        for batch_count, batch in enumerate(dataloader):
+        for batch_count, batch in enumerate(trainloader):
             x = Variable(batch['mixture'].cuda().half())
             y = Variable(batch['speech'].cuda().half())
             est = net(x)
@@ -125,24 +131,31 @@ def main():
             optimizer.step()
             train_loss += loss.data.cpu().float().numpy()[0]
 
+        train_loss = train_loss / batch_count
+
         if (epoch + 1) % 10 == 0:
             val_loss = 0
             net.eval()
-            for i in range(len(valset)):
-                data = valset[i]
-                x = Variable(data['mixture'].cuda().half())
-                y = Variable(data['speech'].cuda.half())
+            for batch_count, batch in enumerate(valloader):
+                batch = valset[i]
+                x = Variable(batch['mixture'].cuda().half())
+                y = Variable(batch['speech'].cuda.half())
                 est = net(x)
 
                 loss = criterion(est, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
-                mixture =  pcm(data['mixture'])
-                speech = pcm(data['speech'])
+                mixture =  pcm(batch['mixture'].numpy())
+                speech = pcm(batch['speech'].numpy())
                 speech_estimate = pcm(est.data.cpu().float().numpy())
-                noise = pcm(data['noise'])
+                noise = pcm(batch['noise'].numpy())
                 noise_estimate = mixture - speech_estimate
                 sdr, sir, sar = evaluate(speech, speech_estimate, noise, noise_estimate)
                 print('Validation Metrics: ', sdr, sir, sar)
+
+        progress_bar.set_description('L:%.3f P:%.1f/%.1f/%.1f' % \
+              (val_loss / batch_count, sdr, sir, sar))
+
+        # win = vis.line([sdr, sir, sar], update='append')
 
 if __name__ == '__main__':
     main()

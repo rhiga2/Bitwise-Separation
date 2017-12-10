@@ -59,7 +59,7 @@ def main():
 
     trainset = DenoisingDataset(speaker_path, noise_path, duration=3,
     speaker_set=speaker_set, noise_set=train_noise, transform=pdm)
-    valset = DenoisingDataset(speaker_path, noise_path, duration=3,
+    valset = DenoisingDataset(speaker_path, noise_path, duration=None,
     speaker_set=speaker_set, noise_set=val_noise, transform=pdm)
     print('Length Training Set: ', len(trainset))
     print('Get Validation Set: ', len(valset))
@@ -72,17 +72,17 @@ def main():
 
     for i in range(len(trainset)):
         mixture, speech, noise = trainset[i]
-        mixture = mixture.numpy().astype(bool)
-        speech = speech.numpy().astype(bool)
-        noise = noise.numpy().astype(bool)
+        mixture = mixture.astype(bool)
+        speech = speech.astype(bool)
+        noise = noise.astype(bool)
         np.savez('/media/data/bitwise_pdm/train%d' % (i,), mixture=mixture,
                  speech=speech, noise=noise)
 
     for i in range(len(valset)):
         mixture, speech, noise = trainset[i]
-        mixture = mixture.numpy().astype(bool)
-        speech = speech.numpy().astype(bool)
-        noise = noise.numpy().astype(bool)
+        mixture = mixture.astype(bool)
+        speech = speech.astype(bool)
+        noise = noise.astype(bool)
         np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
                  speech=speech, noise=noise)
 

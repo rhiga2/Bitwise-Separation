@@ -100,7 +100,7 @@ class DenoisingDataset(Dataset):
         sfile, nfile = self.mixes[i]
         mixture, saudio, naudio = self._getmix(sfile, nfile)
 
-        return torch.FloatTensor(mixture), torch.FloatTensor(saudio), torch.FloatTensor(naudio)
+        return mixture, saudio, naudio
 
 def main():
     speaker_path = '/media/data/timit-wav/train/dr1'
@@ -122,8 +122,6 @@ def main():
     output = np.array([])
     for i in range(len(valset)):
         feature, target, _ = valset[i]
-        feature = feature.numpy()
-        target = target.numpy()
         output = np.append(output, (feature, target))
     librosa.output.write_wav('results/denoise_examples.wav', output, 16000, norm = True)
 
