@@ -9,7 +9,7 @@ import pdb
 
 class DenoisingDataset(Dataset):
     def __init__(self, speaker_path, noise_path, duration = None, sr = 16000,
-                 snr = 0, random_start = True, num_speakers = 5,
+                 snr = 0, random_start = True, speaker_set = None,
                  noise_set = None, speech_split = 8, noise_split = 4,
                  transform = None):
         '''
@@ -26,52 +26,38 @@ class DenoisingDataset(Dataset):
         * noise_set : (list of strings) list of noise files. These noise files
           should be in noise_path but should not include the noise_path in the filename
           (possibly changed due to clunky interface)
-        * speech_split : (int between 0 and 10) the proportion of files allocated
-          to training.
         * transform : (function object) transformation to apply to the input data.
         '''
-        assert speech_split >= 0 and speech_split <= 10
-        assert noise_split >= 0 and noise_split <= len(noise_set)
         self.duration = duration
         self.sr = sr
         self.snr = snr
         self.random_start = random_start
         self.transform = transform
 
-        speakers = glob2.glob(speaker_path + '/*')
+        if speaker_set is None:
+            speakers = glob2.glob(speaker_path + '/*')
+        else:
+            speakers = [speaker_path + '/' + speaker for speaker in speaker_set]
         random.shuffle(speakers)
-        speakers = speakers[:num_speakers - 1]
-        train_speech = []
-        val_speech = []
+        speech = []
         for speaker in speakers:
             files = glob2.glob(speaker + '/*.wav')
-            train_speech.extend(files[:speech_split])
-            val_speech.extend(files[speech_split:])
+            speech.extend(files)
 
         if duration is not None:
-            train_speech = [f for f in train_speech \
-                           if librosa.core.get_duration(filename=f) > self.duration]
-
-            val_speech = [f for f in val_speech \
-                         if librosa.core.get_duration(filename=f) > self.duration]
+            speech = [f for f in speech \
+                     if librosa.core.get_duration(filename=f) > self.duration]
 
         if not noise_set:
             noise_files = glob2.glob(noise_path + '/*.wav')
         else:
             noise_files = [noise_path + '/' + noise for noise in noise_set]
-
         random.shuffle(noise_files)
-        train_noise = noise_files[:noise_split]
-        val_noise = noise_files[noise_split:]
 
-        self.train = list(itertools.product(train_speech, train_noise))
-        self.val = list(itertools.product(val_speech, val_noise))
+        self.mixes = list(itertools.product(train_speech, train_noise))
 
     def __len__(self):
-        return len(self.train)
-
-    def lenval(self):
-        return len(self.val)
+        return len(self.mixes)
 
     def _getmix(self, sfile, nfile):
         soffset = 0
@@ -81,7 +67,9 @@ class DenoisingDataset(Dataset):
         if self.random_start and self.duration is not None:
             soffset = np.random.random() * (sduration - self.duration)
             sduration = min(sduration, self.duration)
-        noffset = np.random.random() * (nduration - sduration)
+
+        if self.random_state:
+            noffset = np.random.random() * (nduration - sduration)
 
         # Read files
         saudio, _ = librosa.core.load(sfile, sr=self.sr, duration=self.duration, offset=soffset,
@@ -109,36 +97,34 @@ class DenoisingDataset(Dataset):
         # Notation
         # s = speech
         # n = noise
-        sfile, nfile = self.train[i]
-        mixture, saudio, _ = self._getmix(sfile, nfile)
+        sfile, nfile = self.mixes[i]
+        mixture, saudio, naudio = self._getmix(sfile, nfile)
 
-        return torch.FloatTensor(mixture), torch.FloatTensor(saudio)
-
-    def getvalset(self):
-        mixes = []
-        targets = []
-        for sfile, nfile in self.val:
-            mixture, saudio, naudio = self._getmix(sfile, nfile)
-            mixes.append(torch.FloatTensor(mixture))
-            targets.append(torch.FloatTensor(np.stack((saudio, naudio), axis = 0)))
-        return mixes, targets
+        return torch.FloatTensor(mixture), torch.FloatTensor(saudio),
+               torch.FloatTensor(naudio)
 
 def main():
     speaker_path = '/media/data/timit-wav/train/dr1'
     noise_path = '/media/data/noises-16k'
-    noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
+    train_noise = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
-    dataset = DenoisingDataset(speaker_path, noise_path, noise_set = noise_set)
-    print('Length: ', len(dataset))
+    val_noise = ['bus-16k.wav', 'airport-16k.wav']
+    speaker_set = ['fcjf0', 'fdml0', 'fetb0', 'mcpm0', 'mdpk0']
+
+
+    trainset = DenoisingDataset(speaker_path, noise_path, noise_set=train_noise,
+                                speaker_set=speaker_set)
+    valset = DenoisingDataset(speaker_path, noise_path, noise_set=val_noise,
+                              speaker_set=speaker_set)
+    print('Train Length: ', len(trainset))
+    print('Validation Length: ', len(valset))
 
     # output validation set
     output = np.array([])
-    features, targets = dataset.getvalset()
-    for feature, target in zip(features, targets):
+    for i in range(len(valset)):
+        feature, target, _ = valset[i]
         feature = feature.numpy()
         target = target.numpy()
-        feature = feature / (1.1 * np.max(feature))
-        target = target[0] / (1.1 * np.max(target))
         output = np.append(output, (feature, target))
     librosa.output.write_wav('results/denoise_examples.wav', output, 16000, norm = True)
 

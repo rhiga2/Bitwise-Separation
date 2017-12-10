@@ -54,13 +54,12 @@ def main():
     noise_path = '/media/data/noises-16k'
     noise_set = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
-    dataset = DenoisingDataset(speaker_path, noise_path, duration=None,
+    dataset = DenoisingDataset(speaker_path, noise_path, duration=3,
     num_speakers=5, noise_set=noise_set, transform=pdm)
     print('Length Training Set: ', len(dataset))
     print('Get Validation Set: ', dataset.lenval())
 
     # Test PDM-PCM conversion
-    '''
     mixture, saudio = dataset[0]
     mixture = mixture.numpy()
     recovered_mix = pcm(mixture)
@@ -72,7 +71,7 @@ def main():
         speech = speech.numpy().astype(bool)
         np.savez('/media/data/bitwise_pdm/train%d' % (i,), mixture=mixture,
                  speech=speech)
-    '''
+
     i = 0
     mixtures, targets = dataset.getvalset()
     print(len(mixtures), len(targets))
