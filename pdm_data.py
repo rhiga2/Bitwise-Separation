@@ -30,14 +30,16 @@ class PulseDensityModulation(object):
         return np.array(y).astype(np.float32)
 
 class PulseCodingModulation(object):
-    def __init__(self, downsample_factor = 64):
+    def __init__(self, downsample_factor = 64, symmetric=False):
         self.downsample_factor = downsample_factor
+        self.symmetric = symmetric
 
     def __call__(self, x):
         '''
         Converts pulse density modulation to pulse coding modulation.
         '''
-        y = 2 * x - 1
+        if not self.symmetric:
+            y = 2 * x - 1
         y = signal.decimate(y, self.downsample_factor, ftype = 'fir', zero_phase = True)
         # for i in range(2):
         #     y = signal.decimate(y, 8, 8, ftype = 'iir', zero_phase = True)
