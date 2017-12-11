@@ -97,7 +97,7 @@ def evaluate(speech, speech_estimate, noise, noise_estimate):
 
 def main():
     parser = argparse.ArgumentParser(description='Bitwise Network')
-    parser.add_argument('--epochs', '-e', type=int, default=100,
+    parser.add_argument('--epochs', '-e', type=int, default=10000,
                         help='Number of epochs')
     parser.add_argument('--learningrate', '-lr', type=float, default=1e-3,
                         help='Learning Rate')
@@ -110,7 +110,7 @@ def main():
     # Dataset
     trainset = BitwiseDataset(datapath + '/train*.npz')
     valset = BitwiseDataset(datapath + '/val*.npz')
-    trainloader = DataLoader(trainset, batch_size = args.batchsize, shuffle = True)
+    trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
     # Instantiate Network
@@ -123,7 +123,7 @@ def main():
     pcm = pdm_data.PulseCodingModulation(symmetric=True)
 
     # Instantiate optimizer and loss
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate, weight_decay=1e-5)
     criterion = SignalDistortionRatio()
 
     # Instantiate Visdom
@@ -148,7 +148,7 @@ def main():
 
         train_loss = train_loss / (batch_count + 1)
 
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 10 == 0:
             val_loss = 0
             sdr = 0
             sir = 0
@@ -169,7 +169,7 @@ def main():
                 sdr += new_sdr
                 sir += new_sir
                 sar += new_sar
-                print('Validation Metrics: ', sdr, sir, sar)
+                print('Validation Metrics: ', new_sdr, new_sir, new_sar)
             sdr = sdr / (batch_count + 1)
             sir = sir / (batch_count + 1)
             sar = sar / (batch_count + 1)
