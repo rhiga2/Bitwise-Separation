@@ -86,7 +86,7 @@ class SignalDistortionRatio(nn.Module):
 
     def forward(self, prediction, target):
         sdr = -torch.mean(prediction * target)**2 / (torch.mean(prediction**2) + self.epsilon)
-        return sdr 
+        return sdr
 
 def evaluate(speech, speech_estimate, noise, noise_estimate):
     references = np.concatenate((speech, noise), axis=0)
@@ -129,9 +129,9 @@ def main():
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)
 
-    sdr = np.inf
-    sir = np.inf
-    sar = np.inf
+    sdr = 0
+    sir = 0
+    sar = 0
     for epoch in progress_bar:
         train_loss = 0
         net.train()
@@ -150,6 +150,9 @@ def main():
 
         if (epoch + 1) % 5 == 0:
             val_loss = 0
+            sdr = 0
+            sir = 0
+            sar = 0
             net.eval()
             for batch_count, batch in enumerate(valloader):
                 x = Variable(batch['mixture'])
@@ -162,8 +165,14 @@ def main():
                 speech = pcm(batch['speech'].numpy())
                 speech_estimate = pcm(est.data.cpu().float().numpy())
                 noise = pcm(batch['noise'].numpy())
-                sdr, sir, sar = evaluate(speech, speech_estimate, noise, noise)
+                new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
+                sdr += new_sdr
+                sir += new_sir
+                sar += new_sar
                 print('Validation Metrics: ', sdr, sir, sar)
+            sdr = sdr / (batch_count + 1)
+            sir = sir / (batch_count + 1)
+            sar = sar / (batch_count + 1)
 
             output = np.append(mixture, speech_estimate)
             librosa.output.write_wav('results/sample_output.wav', output, 16000)
