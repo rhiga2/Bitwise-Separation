@@ -77,15 +77,15 @@ class SeparationNetwork(nn.Module):
         return x
 
 def evaluate(speech, speech_estimate, noise, noise_estimate):
-    references = np.stack(speech, noise)
-    estimates = np.stack(speech_estimate, noise_estimate)
-    sdr, sir, sar = mir_eval.separation.bss_eval_sources(references, estimates,
+    references = np.concatenate((speech, noise), axis=0)
+    estimates = np.concatenate((speech_estimate, noise_estimate), axis=0)
+    sdr, sir, sar, _ = mir_eval.separation.bss_eval_sources(references, estimates,
     compute_permutation=False)
     return sdr[0], sir[0], sar[0]
 
 def main():
     parser = argparse.ArgumentParser(description='Bitwise Network')
-    parser.add_argument('--epochs', '-e', type=int, default=10000,
+    parser.add_argument('--epochs', '-e', type=int, default=100,
                         help='Number of epochs')
     parser.add_argument('--learningrate', '-lr', type=float, default=1e-4,
                         help='Learning Rate')
@@ -107,16 +107,19 @@ def main():
     net = net.cuda().half()
 
     # Instantiate progress bar
-    progess_bar = tqdm.trange(args.epochs)
+    progress_bar = tqdm.trange(args.epochs)
     pcm = pdm_data.PulseCodingModulation()
 
     # Instantiate optimizer and loss
-    optimizer = torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate)
+    optimizer = torch.optim.Adam( filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate, eps=1e-4)
     criterion = nn.MSELoss()
 
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)
 
+    sdr = np.inf
+    sir = np.inf
+    sar = np.inf
     for epoch in progress_bar:
         train_loss = 0
         net.train()
@@ -131,15 +134,14 @@ def main():
             optimizer.step()
             train_loss += loss.data.cpu().float().numpy()[0]
 
-        train_loss = train_loss / batch_count
+        train_loss = train_loss / (batch_count + 1)
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1 == 0:
             val_loss = 0
             net.eval()
             for batch_count, batch in enumerate(valloader):
-                batch = valset[i]
                 x = Variable(batch['mixture'].cuda().half())
-                y = Variable(batch['speech'].cuda.half())
+                y = Variable(batch['speech'].cuda().half())
                 est = net(x)
 
                 loss = criterion(est, y)
@@ -148,12 +150,11 @@ def main():
                 speech = pcm(batch['speech'].numpy())
                 speech_estimate = pcm(est.data.cpu().float().numpy())
                 noise = pcm(batch['noise'].numpy())
-                noise_estimate = mixture - speech_estimate
-                sdr, sir, sar = evaluate(speech, speech_estimate, noise, noise_estimate)
+                sdr, sir, sar = evaluate(speech, speech_estimate, noise, noise)
                 print('Validation Metrics: ', sdr, sir, sar)
 
         progress_bar.set_description('L:%.3f P:%.1f/%.1f/%.1f' % \
-              (val_loss / batch_count, sdr, sir, sar))
+              (train_loss, sdr, sir, sar))
 
         # win = vis.line([sdr, sir, sar], update='append')
 
