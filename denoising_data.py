@@ -108,7 +108,7 @@ def main():
     noise_path = '/media/data/noises-16k'
 
     # get training sentences, validation sentences, and testing sentences
-    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path, 3)
+    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path, 2)
     train_noises, val_noises, test_noises = get_noise_files(noise_path)
 
     trainset = DenoisingDataset(train_speeches, train_noises)
