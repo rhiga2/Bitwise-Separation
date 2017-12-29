@@ -3,6 +3,7 @@ import librosa
 import scipy.signal as signal
 from denoising_data import DenoisingDataset
 import matplotlib.pyplot as plt
+import mir_eval
 import pdb
 
 class PulseDensityModulation(object):

@@ -8,10 +8,8 @@ import random
 import pdb
 
 class DenoisingDataset(Dataset):
-    def __init__(self, speaker_path, noise_path, duration = None, sr = 16000,
-                 snr = 0, random_start = True, speaker_set = None,
-                 noise_set = None, speech_split = 8, noise_split = 4,
-                 transform = None):
+    def __init__(self, speeches, noises, sr = 16000,
+                 snr = 0, random_start = True, transform = None):
         '''
         Parameters
         * speaker_path : (string) path to speaker files
@@ -19,7 +17,7 @@ class DenoisingDataset(Dataset):
         * duration : (float) minimum duration in seconds
         * sr : (int) sampling rate
         * snr : (float) the log signal to noise ratio
-        * random_start : (boolean) if true starts sample speech and noise from a
+        * random_start : (boolean) if true starts sample noise from a
           random offset, otherwise starts sample at the beginning of the recording
         * num_speakers : (int) selects number of speakers in training and
           validation sets
@@ -28,33 +26,11 @@ class DenoisingDataset(Dataset):
           (possibly changed due to clunky interface)
         * transform : (function object) transformation to apply to the input data.
         '''
-        self.duration = duration
         self.sr = sr
         self.snr = snr
         self.random_start = random_start
         self.transform = transform
-
-        if speaker_set is None:
-            speakers = glob2.glob(speaker_path + '/*')
-        else:
-            speakers = [speaker_path + '/' + speaker for speaker in speaker_set]
-        random.shuffle(speakers)
-        speech = []
-        for speaker in speakers:
-            files = glob2.glob(speaker + '/*.wav')
-            speech.extend(files)
-
-        if duration is not None:
-            speech = [f for f in speech \
-                     if librosa.core.get_duration(filename=f) > self.duration]
-
-        if not noise_set:
-            noise_files = glob2.glob(noise_path + '/*.wav')
-        else:
-            noise_files = [noise_path + '/' + noise for noise in noise_set]
-        random.shuffle(noise_files)
-
-        self.mixes = list(itertools.product(speech, noise_files))
+        self.mixes = list(itertools.product(speeches, noises))
 
     def __len__(self):
         return len(self.mixes)
@@ -64,22 +40,17 @@ class DenoisingDataset(Dataset):
         noffset = 0
         sduration = librosa.core.get_duration(filename=sfile)
         nduration = librosa.core.get_duration(filename=nfile)
-        if self.random_start and self.duration is not None:
-            soffset = np.random.random() * (sduration - self.duration)
-            sduration = min(sduration, self.duration)
 
         if self.random_start:
             noffset = np.random.random() * (nduration - sduration)
 
         # Read files
-        saudio, _ = librosa.core.load(sfile, sr=self.sr, duration=self.duration, offset=soffset,
-                                   res_type='kaiser_fast')
-        naudio, _ = librosa.core.load(nfile, sr=self.sr, duration=sduration, offset=noffset,
-                                   res_type='kaiser_fast')
-
-        # Deal with stereo noises
-        if len(naudio.shape) >= 2:
-            naudio = naudio[0] + naudio[1]
+        saudio, _ = librosa.core.load(sfile, sr=self.sr, mono=True,
+                                      duration=self.duration, offset=soffset,
+                                      res_type='kaiser_fast')
+        naudio, _ = librosa.core.load(nfile, sr=self.sr, mono=True,
+                                      duration=self.duration, offset=noffset,
+                                      res_type='kaiser_fast')
 
         # normalize and mix signals
         saudio = saudio / np.std(saudio)
@@ -102,21 +73,54 @@ class DenoisingDataset(Dataset):
 
         return mixture, saudio, naudio
 
+def get_speech_files(speaker_path, num_speakers = 7, num_train = 8, num_val = 1):
+    assert num_train + num_val <= 10 # Assumes each speaker has 10 sentences
+    train_speeches = []
+    val_speeches = []
+    test_speeches = []
+    speakers = []
+    dialects = glob2.glob(speaker_path + '/*')
+    for dialect in dialects:
+        speakers.extend(glob2.glob(dialect + '/*'))
+
+    sample = speakers
+    if not num_speakers:
+        sample = random.sample(speakers, num_speakers)
+    for speaker in sample:
+        files = glob2.glob(speaker + '/*.wav')
+        random.shuffle(files)
+        train_speeches.extend(files[: num_train])
+        val_speeches.extend(files[num_train : num_train + num_val])
+        test_speeches.extend(files[num_train + num_val :])
+    return train_speeches, val_speeches, test_speeches
+
+def get_noise_files(noise_path, num_noises = 10, num_train = 6, num_val = 2):
+    assert num_train + num_val <= num_noises
+    noises = glob2.glob(noise_path)
+    sample = random.sample(noises, num_noises)
+    train_noises = noises[: num_train]
+    val_noises = noises[num_train : num_train + num_val]
+    test_noises = noises[num_train + num_val :]
+    return train_noises, val_noises, test_noises
+
 def main():
-    speaker_path = '/media/data/timit-wav/train/dr1'
+    speaker_path = '/media/data/timit-wav/train'
     noise_path = '/media/data/noises-16k'
     train_noise = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
                  'restaurant-16k.wav', 'subway-16k.wav']
     val_noise = ['bus-16k.wav', 'airport-16k.wav']
-    speaker_set = ['fcjf0', 'fdml0', 'fetb0', 'mcpm0', 'mdpk0']
 
 
-    trainset = DenoisingDataset(speaker_path, noise_path, noise_set=train_noise,
-                                speaker_set=speaker_set)
-    valset = DenoisingDataset(speaker_path, noise_path, noise_set=val_noise,
-                              speaker_set=speaker_set)
+    # get training sentences, validation sentences, and testing sentences
+    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path)
+    train_noises, val_noises, test_noises = get_noise_files(noise_path)
+
+    trainset = DenoisingDataset(train_sentences, train_noises)
+    valset = DenoisingDataset(val_sentences, val_noises)
+    testset = DenoisingDataset(test_sentences, test_noises)
     print('Train Length: ', len(trainset))
     print('Validation Length: ', len(valset))
+    print('Test Length: ', len(testset))
 
     # output validation set
     output = np.array([])
