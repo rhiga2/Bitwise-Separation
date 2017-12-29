@@ -124,7 +124,7 @@ def main():
 
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate, weight_decay=1e-5)
-    criterion = SignalDistortionRatio()
+    criterion = nn.MSELoss()
 
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)

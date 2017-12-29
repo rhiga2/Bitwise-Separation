@@ -46,10 +46,10 @@ class DenoisingDataset(Dataset):
 
         # Read files
         saudio, _ = librosa.core.load(sfile, sr=self.sr, mono=True,
-                                      duration=self.duration, offset=soffset,
+                                      offset=soffset,
                                       res_type='kaiser_fast')
         naudio, _ = librosa.core.load(nfile, sr=self.sr, mono=True,
-                                      duration=self.duration, offset=noffset,
+                                      duration=sduration, offset=noffset,
                                       res_type='kaiser_fast')
 
         # normalize and mix signals
@@ -84,7 +84,7 @@ def get_speech_files(speaker_path, num_speakers = 7, num_train = 8, num_val = 1)
         speakers.extend(glob2.glob(dialect + '/*'))
 
     sample = speakers
-    if not num_speakers:
+    if num_speakers:
         sample = random.sample(speakers, num_speakers)
     for speaker in sample:
         files = glob2.glob(speaker + '/*.wav')
@@ -96,11 +96,11 @@ def get_speech_files(speaker_path, num_speakers = 7, num_train = 8, num_val = 1)
 
 def get_noise_files(noise_path, num_noises = 10, num_train = 6, num_val = 2):
     assert num_train + num_val <= num_noises
-    noises = glob2.glob(noise_path)
+    noises = glob2.glob(noise_path + '/*')
     sample = random.sample(noises, num_noises)
-    train_noises = noises[: num_train]
-    val_noises = noises[num_train : num_train + num_val]
-    test_noises = noises[num_train + num_val :]
+    train_noises = sample[: num_train]
+    val_noises = sample[num_train : num_train + num_val]
+    test_noises = sample[num_train + num_val :]
     return train_noises, val_noises, test_noises
 
 def main():
@@ -112,12 +112,13 @@ def main():
 
 
     # get training sentences, validation sentences, and testing sentences
+    pdb.set_trace()
     train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path)
     train_noises, val_noises, test_noises = get_noise_files(noise_path)
 
-    trainset = DenoisingDataset(train_sentences, train_noises)
-    valset = DenoisingDataset(val_sentences, val_noises)
-    testset = DenoisingDataset(test_sentences, test_noises)
+    trainset = DenoisingDataset(train_speeches, train_noises)
+    valset = DenoisingDataset(val_speeches, val_noises)
+    testset = DenoisingDataset(test_speeches, test_noises)
     print('Train Length: ', len(trainset))
     print('Validation Length: ', len(valset))
     print('Test Length: ', len(testset))
