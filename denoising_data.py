@@ -106,14 +106,9 @@ def get_noise_files(noise_path, num_noises = 10, num_train = 6, num_val = 2):
 def main():
     speaker_path = '/media/data/timit-wav/train'
     noise_path = '/media/data/noises-16k'
-    train_noise = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
-                 'restaurant-16k.wav', 'subway-16k.wav']
-    val_noise = ['bus-16k.wav', 'airport-16k.wav']
-
 
     # get training sentences, validation sentences, and testing sentences
-    pdb.set_trace()
-    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path)
+    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path, 3)
     train_noises, val_noises, test_noises = get_noise_files(noise_path)
 
     trainset = DenoisingDataset(train_speeches, train_noises)
