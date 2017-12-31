@@ -5,6 +5,9 @@ from denoising_data import DenoisingDataset
 import matplotlib.pyplot as plt
 import mir_eval
 import pdb
+import numpy as np
+import matplotlib.pyplot as plt
+from deltasigma import *
 
 class PulseDensityModulation(object):
     def __init__(self, old_sr, new_sr):
@@ -30,6 +33,25 @@ class PulseDensityModulation(object):
         y = (np.array(y) + 1) // 2
         return np.array(y).astype(np.float32)
 
+class PCM2PDM(object):
+    def __init__(self, old_sr, os = 64, order = 2):
+        self.old_sr = old_sr
+        self.os = os
+        self.ntf = synthesizeNTF(order, os, 0)
+
+    def __call__(self, pcm):
+        u = pcm[np.floor(np.arange( 0, len(pcm), 1/self.os)).astype(int)]
+        return simulateDSM(u, self.ntf)[0]
+
+class PDM2PCM(object):
+    def __init__(self, os = 64):
+        self.os = os
+        self.firwin = signal.firwin(2 * os, 1 / os)
+
+    def __call__(self, pdm):
+        os = self.os
+        return signal.convolve(pdm, self.firwin)[os + os // 2 : -os : os]
+
 class PulseCodingModulation(object):
     def __init__(self, downsample_factor = 64, symmetric=False):
         self.downsample_factor = downsample_factor
@@ -43,28 +65,53 @@ class PulseCodingModulation(object):
         if not self.symmetric:
             y = 2 * y - 1
         y = signal.decimate(y, self.downsample_factor, ftype = 'fir', zero_phase = True)
-        # for i in range(2):
-        #     y = signal.decimate(y, 8, 8, ftype = 'iir', zero_phase = True)
+        #for i in range(2):
+        #    y = signal.decimate(y, 8, 8, ftype = 'iir', zero_phase = True)
         return y.astype(np.float32)
 
+def test1():
+    sr = 32
+    os = 32
+    pcm2pdm = PCM2PDM(sr)
+    pdm2pcm = PDM2PCM()
+    pcm_t = np.linspace(0, 7, 7 * sr)
+    pdm_t = np.linspace(0, 7, 7 * sr * os)
+    pcm = np.sin(pcm_t)
+    pdm = pcm2pdm(pcm)
+    recovered_pcm = pdm2pcm(pdm)
+    print('PCM Shape: ', pcm.shape)
+    print('PDM Shape: ', pdm.shape)
+    print('Recovered PCM Shape: ', recovered_pcm.shape)
+    plt.plot(pcm_t, pcm)
+    plt.plot(pdm_t, pdm)
+    plt.plot(pcm_t, recovered_pcm)
+    plt.show()
+
+def test2():
+    sr = 16000
+    pcm2pdm = PCM2PDM(sr)
+    pdm2pcm = PDM2PCM()
+    pcm, sr = librosa.core.load('./results/partita_original.wav', sr = 16000)
+    pcm = pcm / np.max(np.abs(pcm))
+    pdm = pcm2pdm(pcm)
+    new_pcm = pdm2pcm(pdm)
+    librosa.output.write_wav('./results/partita_recovered.wav', new_pcm, sr, norm=True)
 
 def main():
     sr = 16000
-    oversample = 64
+    oversample = 32
 
     pdm = PulseDensityModulation(sr, oversample * sr)
     pcm = PulseCodingModulation(oversample)
-    speaker_path = '/media/data/timit-wav/train/dr1'
+    speaker_path = '/media/data/timit-wav/train'
     noise_path = '/media/data/noises-16k'
-    train_noise = ['babble-16k.wav', 'street-16k.wav', 'car-16k.wav',
-                 'restaurant-16k.wav', 'subway-16k.wav']
-    val_noise = ['bus-16k.wav', 'airport-16k.wav']
-    speaker_set = ['fcjf0', 'fdml0', 'fetb0', 'mcpm0', 'mdpk0']
 
-    trainset = DenoisingDataset(speaker_path, noise_path, duration=3,
-    speaker_set=speaker_set, noise_set=train_noise, transform=pdm)
-    valset = DenoisingDataset(speaker_path, noise_path, duration=None,
-    speaker_set=speaker_set, noise_set=val_noise, transform=pdm)
+    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path, 7)
+    train_noises, val_noises, test_noises = get_noise_files(noise_path)
+    trainset = DenoisingDataset(train_speeches, train_noises, transform=pdm)
+    valset = DenoisingDataset(val_speeches, val_noises, transform=pdm)
+    testset = DenoisingDataset(test_speeches, test_noises, transform=pdm)
+
     print('Length Training Set: ', len(trainset))
     print('Get Validation Set: ', len(valset))
 
@@ -83,12 +130,20 @@ def main():
                  speech=speech, noise=noise)
 
     for i in range(len(valset)):
-        mixture, speech, noise = trainset[i]
+        mixture, speech, noise = valset[i]
         mixture = mixture.astype(bool)
         speech = speech.astype(bool)
         noise = noise.astype(bool)
         np.savez('/media/data/bitwise_pdm/val%d' % (i,), mixture=mixture,
                  speech=speech, noise=noise)
 
+    for i in range(len(testset)):
+        mixture, speech, noise = testset[i]
+        mixture = mixture.astype(bool)
+        speech = speech.astype(bool)
+        noise = noise.astype(bool)
+        np.savez('/media/data/bitwise_pdm/test%d' % (i,), mixture=mixture,
+                 speech=speech, noise=noise)
+
 if __name__ == '__main__':
-    main()
+    test2()
