@@ -146,4 +146,4 @@ def main():
                  speech=speech, noise=noise)
 
 if __name__ == '__main__':
-    test2()
+    main()
