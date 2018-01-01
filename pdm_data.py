@@ -115,8 +115,8 @@ def main():
     speaker_path = '/media/data/timit-wav/train'
     noise_path = '/media/data/noises-16k'
 
-    train_speeches, val_speeches, test_speeches = denoising_data.get_speech_files(speaker_path, 7)
-    train_noises, val_noises, test_noises = denoising_data.get_noise_files(noise_path)
+    train_speeches, val_speeches, test_speeches = denoising_data.get_speech_files(speaker_path, 7, 7, 2)
+    train_noises, val_noises, test_noises = denoising_data.get_noise_files(noise_path, 12, 6, 3)
     trainset = DenoisingDataset(train_speeches, train_noises, transform=pcm2pdm)
     valset = DenoisingDataset(val_speeches, val_noises, transform=pcm2pdm)
     testset = DenoisingDataset(test_speeches, test_noises, transform=pcm2pdm)
@@ -125,8 +125,7 @@ def main():
     print('Get Validation Set: ', len(valset))
 
     # Test PDM-PCM conversion
-    mixture, saudio = trainset[0]
-    mixture = mixture.numpy()
+    mixture, speech, noise = trainset[0]
     recovered_mix = pdm2pcm(mixture)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
 
