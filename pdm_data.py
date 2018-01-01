@@ -1,6 +1,7 @@
 import numpy as np
 import librosa
 import scipy.signal as signal
+import denoising_data
 from denoising_data import DenoisingDataset
 import matplotlib.pyplot as plt
 import mir_eval
@@ -34,22 +35,29 @@ class PulseDensityModulation(object):
         return np.array(y).astype(np.float32)
 
 class PCM2PDM(object):
-    def __init__(self, old_sr, os = 64, order = 2):
+    def __init__(self, old_sr, os = 64, order = 2, symmetric_output = False):
         self.old_sr = old_sr
         self.os = os
         self.ntf = synthesizeNTF(order, os, 0)
+        self.symmetric_output = symmetric_output
 
     def __call__(self, pcm):
         u = pcm[np.floor(np.arange( 0, len(pcm), 1/self.os)).astype(int)]
-        return simulateDSM(u, self.ntf)[0]
+        pdm = simulateDSM(u, self.ntf)[0]
+        if not self.symmetric_output:
+            return (pdm + 1) // 2
+        return pdm
 
 class PDM2PCM(object):
-    def __init__(self, os = 64):
+    def __init__(self, os = 64, symmetric_input = False):
         self.os = os
         self.firwin = signal.firwin(2 * os, 1 / os)
+        self.symmetric_input = symmetric_input
 
     def __call__(self, pdm):
         os = self.os
+        if not self.symmetric_input:
+            pdm = 2 * pdm - 1
         return signal.convolve(pdm, self.firwin)[os + os // 2 : -os : os]
 
 class PulseCodingModulation(object):
@@ -71,9 +79,9 @@ class PulseCodingModulation(object):
 
 def test1():
     sr = 32
-    os = 32
-    pcm2pdm = PCM2PDM(sr)
-    pdm2pcm = PDM2PCM()
+    os = 64
+    pcm2pdm = PCM2PDM(sr, os)
+    pdm2pcm = PDM2PCM(os)
     pcm_t = np.linspace(0, 7, 7 * sr)
     pdm_t = np.linspace(0, 7, 7 * sr * os)
     pcm = np.sin(pcm_t)
@@ -99,18 +107,19 @@ def test2():
 
 def main():
     sr = 16000
-    oversample = 32
+    os = 64
 
-    pdm = PulseDensityModulation(sr, oversample * sr)
-    pcm = PulseCodingModulation(oversample)
+    pcm2pdm = PCM2PDM(sr, os)
+    pdm2pcm = PDM2PCM(os)
+
     speaker_path = '/media/data/timit-wav/train'
     noise_path = '/media/data/noises-16k'
 
-    train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path, 7)
-    train_noises, val_noises, test_noises = get_noise_files(noise_path)
-    trainset = DenoisingDataset(train_speeches, train_noises, transform=pdm)
-    valset = DenoisingDataset(val_speeches, val_noises, transform=pdm)
-    testset = DenoisingDataset(test_speeches, test_noises, transform=pdm)
+    train_speeches, val_speeches, test_speeches = denoising_data.get_speech_files(speaker_path, 7)
+    train_noises, val_noises, test_noises = denoising_data.get_noise_files(noise_path)
+    trainset = DenoisingDataset(train_speeches, train_noises, transform=pcm2pdm)
+    valset = DenoisingDataset(val_speeches, val_noises, transform=pcm2pdm)
+    testset = DenoisingDataset(test_speeches, test_noises, transform=pcm2pdm)
 
     print('Length Training Set: ', len(trainset))
     print('Get Validation Set: ', len(valset))
@@ -118,7 +127,7 @@ def main():
     # Test PDM-PCM conversion
     mixture, saudio = trainset[0]
     mixture = mixture.numpy()
-    recovered_mix = pcm(mixture)
+    recovered_mix = pdm2pcm(mixture)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
 
     for i in range(len(trainset)):
