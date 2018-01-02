@@ -130,6 +130,7 @@ def main():
     recovered_mix = pdm2pcm(mixture)
     librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
 
+    lengths = []
     for i in range(len(trainset)):
         mixture, speech, noise = trainset[i]
         mixture = mixture.astype(bool)
@@ -137,6 +138,8 @@ def main():
         noise = noise.astype(bool)
         np.savez('/media/data/bitwise_pdm/train%d' % (i,), mixture=mixture,
                  speech=speech, noise=noise)
+        lengths.append(speech.shape[0])
+    print('Min Length: ', min(lengths))
 
     for i in range(len(valset)):
         mixture, speech, noise = valset[i]
