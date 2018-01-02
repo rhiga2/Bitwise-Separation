@@ -33,9 +33,9 @@ class BitwiseDataset(Dataset):
         speech = 2 * data['speech'].astype(np.float32) - 1
         noise = 2 * data['noise'].astype(np.float32) - 1
         if self.length:
-            mix = mix[:length]
-            speech = speech[:length]
-            noise = noise[:length]
+            mix = mix[:self.length]
+            speech = speech[:self.length]
+            noise = noise[:self.length]
         return {'noise': noise, 'speech': speech, 'mixture' : mix}
 
 class SeparationNetwork(nn.Module):
@@ -113,7 +113,7 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    trainset = BitwiseDataset(datapath + '/train*.npz', length=1000)
+    trainset = BitwiseDataset(datapath + '/train*.npz', length=1000000)
     valset = BitwiseDataset(datapath + '/val*.npz')
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
