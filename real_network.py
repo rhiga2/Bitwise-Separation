@@ -34,12 +34,11 @@ class BitwiseDataset(Dataset):
         return {'noise': noise, 'speech': speech, 'mixture' : mix}
 
 class Collate(object):
-    def __init__(self):
-        pass
+    def __init__(self, hop):
+        self.hop = hop
 
     def __call__(self, batch):
-        minlength = min([data['mixture'].shape[0] for data in batch])
-        print(minlength)
+        minlength = min([(data['mixture'].shape[0] // self.hop) * self.hop for data in batch])
         tensor = {}
         for key in batch[0]:
             keydata = [data[key][:minlength] for data in batch]
@@ -123,7 +122,7 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    collate = Collate()
+    collate = Collate(hop = 256)
     trainset = BitwiseDataset(datapath + '/train*.npz')
     valset = BitwiseDataset(datapath + '/val*.npz')
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True,
