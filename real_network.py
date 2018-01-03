@@ -37,15 +37,16 @@ class Collate(object):
     def __init__(self):
         pass
 
-    def __call__(self, datalist):
-        minlength = min([data['mixture'].shape[0] for data in datalist])
-
-        batch = {}
+    def __call__(self, batch):
+        minlength = min([data['mixture'].shape[0] for data in batch])
+        print(minlength)
+        tensor = {}
         for key in batch[0]:
-            keydata = [data[key][:minlength] for data in datalist]
-            batch[key] = torch.FloatTensor(keydata)
+            keydata = [data[key][:minlength] for data in batch]
+            keydata = np.array(keydata)
+            tensor[key] = torch.FloatTensor(keydata)
 
-        return batch
+        return tensor
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=3,
@@ -122,7 +123,7 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    collate_fn = Collate()
+    collate = Collate()
     trainset = BitwiseDataset(datapath + '/train*.npz')
     valset = BitwiseDataset(datapath + '/val*.npz')
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True,
