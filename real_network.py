@@ -19,9 +19,8 @@ import pdb
 Real network trained for denoising
 '''
 class BitwiseDataset(Dataset):
-    def __init__(self, pattern, length = None):
+    def __init__(self, pattern):
         self.files = glob2.glob(pattern)
-        self.length = length
 
     def __len__(self):
         return len(self.files)
@@ -32,10 +31,6 @@ class BitwiseDataset(Dataset):
         mix = 2 * data['mixture'].astype(np.float32) - 1
         speech = 2 * data['speech'].astype(np.float32) - 1
         noise = 2 * data['noise'].astype(np.float32) - 1
-        if self.length:
-            mix = mix[:self.length]
-            speech = speech[:self.length]
-            noise = noise[:self.length]
         return {'noise': noise, 'speech': speech, 'mixture' : mix}
 
 class SeparationNetwork(nn.Module):
@@ -113,7 +108,7 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    trainset = BitwiseDataset(datapath + '/train*.npz', length=1000000)
+    trainset = BitwiseDataset(datapath + '/train*.npz')
     valset = BitwiseDataset(datapath + '/val*.npz')
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
