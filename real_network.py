@@ -1,4 +1,4 @@
-import numpy as np
+in import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,8 +19,9 @@ import pdb
 Real network trained for denoising
 '''
 class BitwiseDataset(Dataset):
-    def __init__(self, pattern):
+    def __init__(self, pattern, length):
         self.files = glob2.glob(pattern)
+        self.length = length
 
     def __len__(self):
         return len(self.files)
@@ -31,6 +32,10 @@ class BitwiseDataset(Dataset):
         mix = 2 * data['mixture'].astype(np.float32) - 1
         speech = 2 * data['speech'].astype(np.float32) - 1
         noise = 2 * data['noise'].astype(np.float32) - 1
+        if not self.length:
+            mix = mix[:self.length]
+            speech = speech[:self.length]
+            noise = noise[:self.length]
         return {'noise': noise, 'speech': speech, 'mixture' : mix}
 
 class Collate(object):
@@ -122,11 +127,9 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    collate = Collate(hop = 256)
-    trainset = BitwiseDataset(datapath + '/train*.npz')
+    trainset = BitwiseDataset(datapath + '/train*.npz', length=1000448)
     valset = BitwiseDataset(datapath + '/val*.npz')
-    trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True,
-                             collate_fn = collate)
+    trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
     # Instantiate Network
