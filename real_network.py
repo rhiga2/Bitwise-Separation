@@ -33,6 +33,20 @@ class BitwiseDataset(Dataset):
         noise = 2 * data['noise'].astype(np.float32) - 1
         return {'noise': noise, 'speech': speech, 'mixture' : mix}
 
+class Collate(object):
+    def __init__(self):
+        pass
+
+    def __call__(self, datalist):
+        minlength = min([data['mixture'].shape[0] for data in datalist])
+
+        batch = {}
+        for key in batch[0]:
+            keydata = [data[key][:minlength] for data in datalist]
+            batch[key] = torch.FloatTensor(keydata)
+
+        return batch
+
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=3,
                  hidden_sizes=[512, 512], hop=256, dropout=0., activation=F.relu):
@@ -108,9 +122,11 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
+    collate_fn = Collate()
     trainset = BitwiseDataset(datapath + '/train*.npz')
     valset = BitwiseDataset(datapath + '/val*.npz')
-    trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
+    trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True,
+                             collate_fn = collate)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
     # Instantiate Network
