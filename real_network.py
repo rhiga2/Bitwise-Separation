@@ -37,12 +37,12 @@ class Collate(object):
     def __init__(self):
         pass
 
-    def __call__(self, datalist):
-        minlength = min([data['mixture'].shape[0] for data in datalist])
+    def __call__(self, batch):
+        minlength = min([data['mixture'].shape[0] for data in batch])
 
         batch = {}
         for key in batch[0]:
-            keydata = [data[key][:minlength] for data in datalist]
+            keydata = [data[key][:minlength] for data in batch]
             batch[key] = torch.FloatTensor(keydata)
 
         return batch
