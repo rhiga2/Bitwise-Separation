@@ -1,4 +1,4 @@
-in import numpy as np
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,7 +19,7 @@ import pdb
 Real network trained for denoising
 '''
 class BitwiseDataset(Dataset):
-    def __init__(self, pattern, length):
+    def __init__(self, pattern, length=None):
         self.files = glob2.glob(pattern)
         self.length = length
 
@@ -29,10 +29,10 @@ class BitwiseDataset(Dataset):
     def __getitem__(self, i):
         dfile = self.files[i]
         data = np.load(dfile)
-        mix = 2 * data['mixture'].astype(np.float32) - 1
-        speech = 2 * data['speech'].astype(np.float32) - 1
-        noise = 2 * data['noise'].astype(np.float32) - 1
-        if not self.length:
+        mix = data['mixture'].astype(np.float32)
+        speech = data['speech'].astype(np.float32)
+        noise = data['noise'].astype(np.float32)
+        if self.length:
             mix = mix[:self.length]
             speech = speech[:self.length]
             noise = noise[:self.length]
@@ -128,7 +128,7 @@ def main():
 
     # Dataset
     trainset = BitwiseDataset(datapath + '/train*.npz', length=1000448)
-    valset = BitwiseDataset(datapath + '/val*.npz')
+    valset = BitwiseDataset(datapath + '/val*.npz', length=1000448)
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
@@ -139,7 +139,7 @@ def main():
 
     # Instantiate progress bar
     progress_bar = tqdm.trange(args.epochs)
-    pcm = pdm_data.PulseCodingModulation(symmetric=True)
+    pdm2pcm = pdm_data.PDM2PCM(symmetric_input=False)
 
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate, weight_decay=1e-5)
@@ -157,9 +157,9 @@ def main():
         for batch_count, batch in enumerate(trainloader):
             x = Variable(batch['mixture'])
             y = Variable(batch['speech'])
-            est = net(x).cpu()
+            pred = net(x).cpu()
 
-            loss = criterion(est, y)
+            loss = criterion(pred, y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -176,14 +176,14 @@ def main():
             for batch_count, batch in enumerate(valloader):
                 x = Variable(batch['mixture'])
                 y = Variable(batch['speech'])
-                est = net(x).cpu()
+                pred = net(x).cpu()
 
-                loss = criterion(est, y)
+                loss = criterion(pred, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
-                mixture =  pcm(batch['mixture'].numpy())
-                speech = pcm(batch['speech'].numpy())
-                speech_estimate = pcm(est.data.cpu().float().numpy())
-                noise = pcm(batch['noise'].numpy())
+                mixture =  pdm2pcm(batch['mixture'].numpy())
+                speech = pdm2pcm(batch['speech'].numpy())
+                speech_estimate = pdm2pcm(pred.data.cpu().float().numpy())
+                noise = pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
                 sdr += new_sdr
                 sir += new_sir
