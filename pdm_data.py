@@ -10,30 +10,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from deltasigma import *
 
-class PulseDensityModulation(object):
-    def __init__(self, old_sr, new_sr):
-        self.old_sr = old_sr
-        self.new_sr = new_sr
-
-    def __call__(self, x):
-        '''
-        Converts pulse code modulation to pulse density modulation.
-        I would like to have a less sequential transformation.
-        More details: https://en.wikipedia.org/wiki/Pulse-density_modulation
-        '''
-        x = x / np.max(np.abs(x))
-        x = librosa.core.resample(x, self.old_sr, self.new_sr, res_type = 'scipy')
-        y = []
-        qe = 0 # quantization error
-        for i in range(x.shape[0]):
-            if x[i] >= qe:
-                y.append(1)
-            else:
-                y.append(-1)
-            qe = y[i] - x[i] + qe
-        y = (np.array(y) + 1) // 2
-        return np.array(y).astype(np.float32)
-
 class PCM2PDM(object):
     def __init__(self, old_sr, os = 64, order = 2, symmetric_output = False):
         self.old_sr = old_sr
@@ -67,23 +43,6 @@ class PDM2PCM(object):
             output = signal.convolve(pdm, firwin)
             output = output[:, os + os // 2 : -os : os]
         return output
-
-class PulseCodingModulation(object):
-    def __init__(self, downsample_factor = 64, symmetric=False):
-        self.downsample_factor = downsample_factor
-        self.symmetric = symmetric
-
-    def __call__(self, x):
-        '''
-        Converts pulse density modulation to pulse coding modulation.
-        '''
-        y = x
-        if not self.symmetric:
-            y = 2 * y - 1
-        y = signal.decimate(y, self.downsample_factor, ftype = 'fir', zero_phase = True)
-        #for i in range(2):
-        #    y = signal.decimate(y, 8, 8, ftype = 'iir', zero_phase = True)
-        return y.astype(np.float32)
 
 def test1():
     sr = 32

@@ -107,6 +107,58 @@ class SignalDistortionRatio(nn.Module):
         sdr = -torch.mean(prediction * target)**2 / (torch.mean(prediction**2) + self.epsilon)
         return sdr
 
+def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
+    output_period = 10):
+    loss = [
+        # Training sLoss
+        dict(x=list(range(0, output_period * len(train_loss), output_period)),
+             y=train_loss, name='Training Loss', hoverinfo='name+y+lines',
+             line=dict(width=1), mode='lines', type='scatter'),
+
+        # Validation loss
+        dict(x=list(range(0, output_period * len(val_loss), output_period)),
+             y=val_loss, name='Validation Loss', hoverinfo='name+y+lines',
+             line=dict(width=1), mode='lines', type='scatter')
+    ]
+    loss_layout = dict(
+        showlegend=True,
+        legend=dict(orientation='h', y=1.1, bgcolor='rgba(0,0,0,0)'),
+        margin=dict(r=30, b=40, l=50, t=50),
+        font=dict(family='Bell Gothic Std'),
+        xaxis=dict(autorange=True, title='Training samples'),
+        yaxis=dict(autorange=True, title='Loss'),
+        title='Losses',
+    )
+    vis._send( dict(data=loss, layout=loss_layout, win='Loss', eid='Model'))
+
+    # BSS_EVAL plots
+    bss = [
+        # SDR
+        dict(x=list(range(0, output_period * len(sdr), output_period),
+             y=sdr, name='SDR', hoverinfo='name+y+lines', line=dict(width=1),
+             mode='lines', type='scatter'),
+
+        # SIR
+        dict(x=list(range(0, output_period * len(sir), output_period),
+             y=sir, name='SIR', hoverinfo='name+y+lines', line=dict( width=1),
+             mode='lines', type='scatter'),
+        # SAR
+        dict(x=list(range(0, output_period * len(sar), output_period),
+             y=sir, name='SAR', hoverinfo='name+y+lines', line=dict(width=1),
+             mode='lines', type='scatter'),
+    ]
+    bss_layout = dict(
+        showlegend=True,
+        legend=dict(orientation='h', y=1.05, bgcolor='rgba(0,0,0,0)'),
+        margin=dict(r=30, b=40, l=50, t=50),
+        font=dict(family='Bell Gothic Std'),
+        xaxis=dict(autorange=True, title='Training samples'),
+        yaxis=dict(autorange=True, title='dB'),
+        title='BSS_EVAL'
+    )
+
+    vis._send( dict( data=data2, layout=layout2, win='BSS', eid='Model'))
+
 def evaluate(speech, speech_estimate, noise, noise_estimate):
     references = np.concatenate((speech, noise), axis=0)
     estimates = np.concatenate((speech_estimate, noise_estimate), axis=0)
@@ -142,15 +194,21 @@ def main():
     pdm2pcm = pdm_data.PDM2PCM(symmetric_input=False)
 
     # Instantiate optimizer and loss
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, net.parameters()), lr=args.learningrate, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
+                                 net.parameters()), lr=args.learningrate,
+                                 weight_decay=1e-5)
     criterion = nn.BCEWithLogitsLoss()
 
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)
 
-    sdr = 0
-    sir = 0
-    sar = 0
+    sdr, sir, sar = (0, 0, 0)
+    train_history = []
+    validation_history = []
+    sdr_history = []
+    sar_history = []
+    sir_history = []
+    output_period = 10
     for epoch in progress_bar:
         train_loss = 0
         net.train()
@@ -167,11 +225,9 @@ def main():
 
         train_loss = train_loss / (batch_count + 1)
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % output_period == 0:
             val_loss = 0
-            sdr = 0
-            sir = 0
-            sar = 0
+            sdr, sir, sar = (0, 0, 0)
             net.eval()
             for batch_count, batch in enumerate(valloader):
                 x = Variable(batch['mixture'])
@@ -189,12 +245,23 @@ def main():
                 sir += new_sir
                 sar += new_sar
                 print('Validation Metrics: ', new_sdr, new_sir, new_sar)
+            val_loss = val_loss / (batch_count + 1)
             sdr = sdr / (batch_count + 1)
             sir = sir / (batch_count + 1)
             sar = sar / (batch_count + 1)
 
+            train_history.append(train_loss)
+            val_history.append(val_loss)
+            sdr_history.append(sdr)
+            sar_history.append(sar)
+            sir_history.append(sir)
+
             output = np.append(mixture, speech_estimate)
             librosa.output.write_wav('results/sample_output.wav', output, 16000)
+
+            plot_loss_and_metrics(train_history, val_history,
+                                  sdr_history, sar_history, sir_history, vis,
+                                  output_period)
 
         progress_bar.set_description('L:%.3f P:%.1f/%.1f/%.1f' % \
               (train_loss, sdr, sir, sar))
