@@ -129,7 +129,7 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
         yaxis=dict(autorange=True, title='Loss'),
         title='Losses',
     )
-    vis._send( dict(data=loss, layout=loss_layout, win='Loss', eid='Ryley BNN'))
+    vis._send(dict(data=loss, layout=loss_layout, win='Loss', eid='Ryley BNN'))
 
     # BSS_EVAL plots
     bss = [
