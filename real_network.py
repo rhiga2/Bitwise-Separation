@@ -120,6 +120,7 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
              y=val_loss, name='Validation Loss', hoverinfo='name+y+lines',
              line=dict(width=1), mode='lines', type='scatter')
     ]
+
     loss_layout = dict(
         showlegend=True,
         legend=dict(orientation='h', y=1.1, bgcolor='rgba(0,0,0,0)'),
@@ -129,24 +130,27 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
         yaxis=dict(autorange=True, title='Loss'),
         title='Losses',
     )
-    vis._send( dict(data=loss, layout=loss_layout, win='Loss', eid='Model'))
+
+    vis._send(dict(data=loss, layout=loss_layout, win='Loss', eid='Model'))
 
     # BSS_EVAL plots
     bss = [
         # SDR
-        dict(x=list(range(0, output_period * len(sdr), output_period),
+        dict(x=list(range(0, output_period * len(sdr), output_period)),
              y=sdr, name='SDR', hoverinfo='name+y+lines', line=dict(width=1),
              mode='lines', type='scatter'),
 
         # SIR
-        dict(x=list(range(0, output_period * len(sir), output_period),
-             y=sir, name='SIR', hoverinfo='name+y+lines', line=dict( width=1),
+        dict(x=list(range(0, output_period * len(sir), output_period)),
+             y=sir, name='SIR', hoverinfo='name+y+lines', line=dict(width=1),
              mode='lines', type='scatter'),
+        
         # SAR
-        dict(x=list(range(0, output_period * len(sar), output_period),
+        dict(x=list(range(0, output_period * len(sar), output_period)),
              y=sir, name='SAR', hoverinfo='name+y+lines', line=dict(width=1),
-             mode='lines', type='scatter'),
+             mode='lines', type='scatter')
     ]
+
     bss_layout = dict(
         showlegend=True,
         legend=dict(orientation='h', y=1.05, bgcolor='rgba(0,0,0,0)'),
@@ -157,7 +161,7 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
         title='BSS_EVAL'
     )
 
-    vis._send( dict( data=data2, layout=layout2, win='BSS', eid='Model'))
+    vis._send(dict( data=bss, layout=bss_layout, win='BSS', eid='Model'))
 
 def evaluate(speech, speech_estimate, noise, noise_estimate):
     references = np.concatenate((speech, noise), axis=0)
@@ -204,11 +208,11 @@ def main():
 
     sdr, sir, sar = (0, 0, 0)
     train_history = []
-    validation_history = []
+    val_history = []
     sdr_history = []
     sar_history = []
     sir_history = []
-    output_period = 10
+    output_period = 1
     for epoch in progress_bar:
         train_loss = 0
         net.train()
@@ -244,7 +248,7 @@ def main():
                 sdr += new_sdr
                 sir += new_sir
                 sar += new_sar
-                print('Validation Metrics: ', new_sdr, new_sir, new_sar)
+
             val_loss = val_loss / (batch_count + 1)
             sdr = sdr / (batch_count + 1)
             sir = sir / (batch_count + 1)
