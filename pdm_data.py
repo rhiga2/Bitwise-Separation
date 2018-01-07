@@ -58,7 +58,15 @@ class PDM2PCM(object):
         os = self.os
         if not self.symmetric_input:
             pdm = 2 * pdm - 1
-        return signal.convolve(pdm, self.firwin)[os + os // 2 : -os : os]
+        if pdm.shape == 1:
+            firwin = self.firwin
+            output = signal.convolve(pdm, firwin)
+            output = output[os + os // 2 : -os : os]
+        else:
+            firwin = np.expand_dims(self.firwin, 0)
+            output = signal.convolve(pdm, firwin)
+            output = output[:, os + os // 2 : -os : os]
+        return output
 
 class PulseCodingModulation(object):
     def __init__(self, downsample_factor = 64, symmetric=False):
