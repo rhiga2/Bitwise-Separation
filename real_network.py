@@ -259,7 +259,7 @@ def main():
             sir_history.append(sir)
 
             output = np.append(mixture, speech_estimate)
-            librosa.output.write_wav('results/sample_output.wav', output, 16000)
+            librosa.output.write_wav('results/sample_output.wav', output, 16000, norm=True)
 
             plot_loss_and_metrics(train_history, val_history,
                                   sdr_history, sar_history, sir_history, vis,
