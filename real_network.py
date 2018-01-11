@@ -29,14 +29,14 @@ class BitwiseDataset(Dataset):
     def __getitem__(self, i):
         dfile = self.files[i]
         data = np.load(dfile)
-        mix = 2 * data['mixture'].astype(np.float32) - 1
+        mix = data['mixture'].astype(np.float32)
         speech = data['speech'].astype(np.float32)
         noise = data['noise'].astype(np.float32)
         if self.length:
             mix = mix[:self.length]
             speech = speech[:self.length]
             noise = noise[:self.length]
-        return {'noise': noise, 'speech': speech, 'mixture' : mix}
+        return {'noise': noise, 'speech': mix, 'mixture' : 2 * mix - 1}
 
 class Collate(object):
     def __init__(self, hop):
