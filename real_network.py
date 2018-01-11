@@ -29,9 +29,9 @@ class BitwiseDataset(Dataset):
     def __getitem__(self, i):
         dfile = self.files[i]
         data = np.load(dfile)
-        mix = data['mixture'].astype(np.float32)
-        speech = data['speech'].astype(np.float32)
-        noise = data['noise'].astype(np.float32)
+        mix = 2 * data['mixture'].astype(np.float32) - 1
+        speech = 2 * data['speech'].astype(np.float32) - 1
+        noise = 2 * data['noise'].astype(np.float32) - 1
         if self.length:
             mix = mix[:self.length]
             speech = speech[:self.length]
@@ -191,7 +191,7 @@ def main():
 
     # Instantiate progress bar
     progress_bar = tqdm.trange(args.epochs)
-    pdm2pcm = pdm_data.PDM2PCM(symmetric_input=False)
+    pdm2pcm = pdm_data.PDM2PCM(symmetric_input=True)
 
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
