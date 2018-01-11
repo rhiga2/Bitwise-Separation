@@ -30,8 +30,8 @@ class BitwiseDataset(Dataset):
         dfile = self.files[i]
         data = np.load(dfile)
         mix = 2 * data['mixture'].astype(np.float32) - 1
-        speech = 2 * data['speech'].astype(np.float32) - 1
-        noise = 2 * data['noise'].astype(np.float32) - 1
+        speech = data['speech'].astype(np.float32)
+        noise = data['noise'].astype(np.float32)
         if self.length:
             mix = mix[:self.length]
             speech = speech[:self.length]
@@ -191,7 +191,8 @@ def main():
 
     # Instantiate progress bar
     progress_bar = tqdm.trange(args.epochs)
-    pdm2pcm = pdm_data.PDM2PCM(symmetric_input=True)
+    sym_pdm2pcm = pdm_data.PDM2PCM(symmetric_input=True)
+    asym_pdm2pcm = pdm_data.PDM2PCM(symmetric_input=False)
 
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
@@ -215,9 +216,9 @@ def main():
         for batch_count, batch in enumerate(trainloader):
             x = Variable(batch['mixture'])
             y = Variable(batch['speech'])
-            pred = net(x).cpu()
+            logits = net(x).cpu()
 
-            loss = criterion(pred, y)
+            loss = criterion(logits, y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -232,14 +233,15 @@ def main():
             for batch_count, batch in enumerate(valloader):
                 x = Variable(batch['mixture'])
                 y = Variable(batch['speech'])
-                pred = net(x).cpu()
+                logits = net(x).cpu()
 
                 loss = criterion(pred, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
-                mixture =  pdm2pcm(batch['mixture'].numpy())
-                speech = pdm2pcm(batch['speech'].numpy())
-                speech_estimate = pdm2pcm(pred.data.cpu().float().numpy())
-                noise = pdm2pcm(batch['noise'].numpy())
+                mixture =  sym_pdm2pcm(batch['mixture'].numpy())
+                speech = asym_pdm2pcm(batch['speech'].numpy())
+                pred = logits.data.cpu().float().numpy() > 0
+                speech_estimate = asym_pdm2pcm(logits)
+                noise = asym_pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
                 sdr += new_sdr
                 sir += new_sir
