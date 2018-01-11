@@ -235,12 +235,12 @@ def main():
                 y = Variable(batch['speech'])
                 logits = net(x).cpu()
 
-                loss = criterion(pred, y)
+                loss = criterion(logits, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
                 mixture =  sym_pdm2pcm(batch['mixture'].numpy())
                 speech = asym_pdm2pcm(batch['speech'].numpy())
                 pred = logits.data.cpu().float().numpy() > 0
-                speech_estimate = asym_pdm2pcm(logits)
+                speech_estimate = asym_pdm2pcm(pred)
                 noise = asym_pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
                 sdr += new_sdr
