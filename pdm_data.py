@@ -34,7 +34,7 @@ class PDM2PCM(object):
         os = self.os
         if not self.symmetric_input:
             pdm = 2 * pdm - 1
-        if pdm.shape == 1:
+        if len(pdm.shape) == 1:
             firwin = self.firwin
             output = signal.convolve(pdm, firwin)
             output = output[os + os // 2 : -os : os]
@@ -66,9 +66,12 @@ def test2():
     sr = 16000
     pcm2pdm = PCM2PDM(sr)
     pdm2pcm = PDM2PCM()
-    pcm, sr = librosa.core.load('./results/partita_original.wav', sr = 16000)
+    pcm, sr = librosa.core.load('./results/partita_original.wav', sr=16000)
     pcm = pcm / np.max(np.abs(pcm))
     pdm = pcm2pdm(pcm)
+    print('PCM Shape: ', pcm.shape)
+    print('PDM Shape: ', pdm.shape)
+    pdb.set_trace()
     new_pcm = pdm2pcm(pdm)
     librosa.output.write_wav('./results/partita_recovered.wav', new_pcm, sr, norm=True)
 
