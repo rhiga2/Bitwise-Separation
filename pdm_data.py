@@ -67,13 +67,27 @@ def test2():
     pcm2pdm = PCM2PDM(sr)
     pdm2pcm = PDM2PCM()
     pcm, sr = librosa.core.load('./results/partita_original.wav', sr=16000)
-    pcm = pcm / np.max(np.abs(pcm))
     pdm = pcm2pdm(pcm)
     print('PCM Shape: ', pcm.shape)
     print('PDM Shape: ', pdm.shape)
-    pdb.set_trace()
     new_pcm = pdm2pcm(pdm)
     librosa.output.write_wav('./results/partita_recovered.wav', new_pcm, sr, norm=True)
+
+def test3():
+    sr = 16000
+    os = 64
+
+    pcm2pdm = PCM2PDM(sr, os)
+    pdm2pcm = PDM2PCM(os)
+
+    speaker_path = '/media/data/timit-wav/train'
+    noise_path = '/media/data/noises-16k'
+    train_speeches, val_speeches, test_speeches = denoising_data.get_speech_files(speaker_path, 7, 7, 2)
+    trainset = DenoisingDataset(train_speeches, train_noises, transform=pcm2pdm)
+
+    mixture, speech, noise = trainset[0]
+    recovered_mix = pdm2pcm(mixture)
+    librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm=True)
 
 def main():
     sr = 16000
@@ -97,7 +111,7 @@ def main():
     # Test PDM-PCM conversion
     mixture, speech, noise = trainset[0]
     recovered_mix = pdm2pcm(mixture)
-    librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm = True)
+    librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm=True)
 
     lengths = []
     for i in range(len(trainset)):
@@ -127,4 +141,4 @@ def main():
                  speech=speech, noise=noise)
 
 if __name__ == '__main__':
-    test2()
+    test3()
