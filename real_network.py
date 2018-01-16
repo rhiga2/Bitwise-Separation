@@ -179,8 +179,8 @@ def main():
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    trainset = BitwiseDataset(datapath + '/train*.npz', length=1000448)
-    valset = BitwiseDataset(datapath + '/val*.npz', length=1000448)
+    trainset = BitwiseDataset(datapath + '/train*.npz', length=1644800)
+    valset = BitwiseDataset(datapath + '/val*.npz', length=None)
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
