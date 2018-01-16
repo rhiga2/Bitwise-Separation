@@ -54,8 +54,11 @@ class DenoisingDataset(Dataset):
 
         # normalize and mix signals
         saudio = saudio / np.std(saudio)
+        saudio = saudio / np.max(saudio)
         naudio = naudio / np.std(naudio)
+        naudio = naudio / np.max(naudio)
         mixture = saudio + naudio
+        mixture = mixture / np.max(mixture)
 
         if self.transform:
             mixture = self.transform(mixture)
@@ -108,7 +111,6 @@ def main():
     noise_path = '/media/data/noises-16k'
 
     # get training sentences, validation sentences, and testing sentences
-    pdb.set_trace()
     train_speeches, val_speeches, test_speeches = get_speech_files(speaker_path)
     train_noises, val_noises, test_noises = get_noise_files(noise_path)
 
