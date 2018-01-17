@@ -90,8 +90,8 @@ def test3():
     mixture, speech, noise = trainset[0]
     recovered_mix = pdm2pcm(mixture)
     recovered_speech = pdm2pcm(speech)
-    recovered = np.append(recovered_mix, recovered_speech)
-    librosa.output.write_wav('results/recovered.wav', recovered, sr, norm=True)
+    librosa.output.write_wav('results/recovered_mix.wav', recovered_mix, sr, norm=True)
+    librosa.output.write_wav('results/recovered_speech.wav', recovered_speech, sr, norm=True)
 
     trainset = DenoisingDataset(train_speeches, train_noises)
     mixture, speech, noise = trainset[0]
