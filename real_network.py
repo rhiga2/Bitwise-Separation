@@ -65,7 +65,7 @@ class SeparationNetwork(nn.Module):
 
         # Intialize transformation network parameter
         pdb.set_trace()
-        params = self.transform1d.parameters()
+        params = list(self.transform1d.parameters())
         U, _, Vt = np.linalg.svd(params[0].data.numpy(), full_matrices=False)
         params[0].data = torch.FloatTensor(Vt)
 
