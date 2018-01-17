@@ -37,7 +37,7 @@ class BitwiseDataset(Dataset):
             mix = mix[start : self.length + start]
             speech = speech[start : self.length + start]
             noise = noise[start : self.length + start]
-        return {'noise': noise, 'speech' : mix, 'mixture' : 2 * mix - 1}
+        return {'noise': noise, 'speech' : speech, 'mixture' : 2 * mix - 1}
 
 class Collate(object):
     def __init__(self, hop):
@@ -218,11 +218,11 @@ def main():
     vis = visdom.Visdom(port=5800)
 
     sdr, sir, sar = (0, 0, 0)
-    train_history = []
-    val_history = []
-    sdr_history = []
-    sar_history = []
-    sir_history = []
+    train_loss_history = []
+    val_loss_history = []
+    val_sdr_history = []
+    val_sar_history = []
+    val_sir_history = []
     output_period = 1
     for epoch in progress_bar:
         train_loss = 0
@@ -242,7 +242,7 @@ def main():
 
         if (epoch + 1) % output_period == 0:
             val_loss = 0
-            sdr, sir, sar = (0, 0, 0)
+            val_sdr, val_sir, val_sar = (0, 0, 0)
             net.eval()
             for batch_count, batch in enumerate(valloader):
                 x = Variable(batch['mixture'])
@@ -257,27 +257,27 @@ def main():
                 speech_estimate = asym_pdm2pcm(pred)
                 noise = asym_pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
-                sdr += new_sdr
-                sir += new_sir
-                sar += new_sar
+                val_sdr += new_sdr
+                val_sir += new_sir
+                val_sar += new_sar
 
             val_loss = val_loss / (batch_count + 1)
-            sdr = sdr / (batch_count + 1)
-            sir = sir / (batch_count + 1)
-            sar = sar / (batch_count + 1)
+            val_sdr = val_sdr / (batch_count + 1)
+            val_sir = val_sir / (batch_count + 1)
+            val_sar = val_sar / (batch_count + 1)
 
-            train_history.append(train_loss)
-            val_history.append(val_loss)
-            sdr_history.append(sdr)
-            sar_history.append(sar)
-            sir_history.append(sir)
+            train_loss_history.append(train_loss)
+            val_loss_history.append(val_loss)
+            val_sdr_history.append(val_sdr)
+            val_sar_history.append(val_sar)
+            val_sir_history.append(val_sir)
 
             output = np.append(mixture, speech)
             output = np.append(output, speech_estimate)
             librosa.output.write_wav('results/sample_output.wav', output, 16000)
 
-            plot_loss_and_metrics(train_history, val_history,
-                                  sdr_history, sar_history, sir_history, vis,
+            plot_loss_and_metrics(train_loss_history, val_loss_history,
+                                  val_sdr_history, val_sar_history, val_sir_history, vis,
                                   output_period)
 
         progress_bar.set_description('L:%.3f P:%.1f/%.1f/%.1f' % \
