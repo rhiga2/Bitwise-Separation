@@ -33,9 +33,10 @@ class BitwiseDataset(Dataset):
         speech = data['speech'].astype(np.float32)
         noise = data['noise'].astype(np.float32)
         if self.length:
-            mix = mix[:self.length]
-            speech = speech[:self.length]
-            noise = noise[:self.length]
+            start = np.random.randint(0, mix.shape[0] - self.length)
+            mix = mix[start : self.length + start]
+            speech = speech[start : self.length + start]
+            noise = noise[start : self.length + start]
         return {'noise': noise, 'speech' : speech, 'mixture' : 2 * mix - 1}
 
 class Collate(object):
@@ -74,11 +75,11 @@ class SeparationNetwork(nn.Module):
 
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
         self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
-        self.conv_bn2 = nn.BatchNorm2d(num_channels)
+        # self.conv_bn2 = nn.BatchNorm2d(num_channels)
 
         # Fully connected layers
         self.linear1 = nn.Linear(num_channels * transform_size, 2 * transform_size)
-        self.linear_bn1 = nn.BatchNorm1d(2 * transform_size)
+        # self.linear_bn1 = nn.BatchNorm1d(2 * transform_size)
         self.linear2 = nn.Linear(2 * transform_size, transform_size)
         self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
 
@@ -91,14 +92,14 @@ class SeparationNetwork(nn.Module):
         # (batch, transform, frame) to (batch, 1, transform, frame)
         x = x.unsqueeze(1)
         x = self.activation(self.smooth(x))
-        x = self.conv_bn2(x)
+        # x = self.conv_bn2(x)
 
         # (batch, channels, transform, frames) to (batch, frames, channels * transform)
         batch_size, _, _, frames = x.size()
         x = x.permute(0, 3, 1, 2).contiguous().view(batch_size, frames, -1)
         x = self.activation(self.linear1(x))
         x = x.permute(0, 2, 1).contiguous()
-        x = self.linear_bn1(x)
+        # x = self.linear_bn1(x)
         x = x.permute(0, 2, 1).contiguous()
         x = self.linear2(x)
 
@@ -180,11 +181,11 @@ def main():
     parser = argparse.ArgumentParser(description='Bitwise Network')
     parser.add_argument('--epochs', '-e', type=int, default=10000,
                         help='Number of epochs')
-    parser.add_argument('--learningrate', '-lr', type=float, default=1e-3,
+    parser.add_argument('--learningrate', '-lr', type=float, default=1e-2,
                         help='Learning Rate')
     parser.add_argument('--batchsize', '-b', type=int, default=4,
                         help='Batch Size')
-    parser.add_argument('--weightdecay', '-wd', type=float, default=1e-4,
+    parser.add_argument('--weightdecay', '-wd', type=float, default=0,
                         help='L2 Regularization Constant')
     args = parser.parse_args()
 
@@ -210,8 +211,8 @@ def main():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
                                  net.parameters()), lr=args.learningrate,
                                  weight_decay=args.weightdecay)
-    criterion = SignalDistortionRatio()
-    # criterion = nn.BCEWithLogitsLoss()
+    # criterion = SignalDistortionRatio()
+    criterion = nn.BCEWithLogitsLoss()
 
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)
@@ -222,7 +223,7 @@ def main():
     sdr_history = []
     sar_history = []
     sir_history = []
-    output_period = 5
+    output_period = 1
     for epoch in progress_bar:
         train_loss = 0
         net.train()

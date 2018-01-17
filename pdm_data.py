@@ -83,11 +83,14 @@ def test3():
     speaker_path = '/media/data/timit-wav/train'
     noise_path = '/media/data/noises-16k'
     train_speeches, val_speeches, test_speeches = denoising_data.get_speech_files(speaker_path, 7, 7, 2)
+    train_noises, val_noises, test_noises = denoising_data.get_noise_files(noise_path, 12, 6, 3)
     trainset = DenoisingDataset(train_speeches, train_noises, transform=pcm2pdm)
 
     mixture, speech, noise = trainset[0]
     recovered_mix = pdm2pcm(mixture)
-    librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm=True)
+    recovered_speech = pdm2pcm(speech)
+    recovered = np.append(recovered_mix, recovered_speech)
+    librosa.output.write_wav('results/recovered.wav', recovered, sr, norm=True)
 
 def main():
     sr = 16000
@@ -141,4 +144,4 @@ def main():
                  speech=speech, noise=noise)
 
 if __name__ == '__main__':
-    main()
+    test3()
