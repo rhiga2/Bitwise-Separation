@@ -116,7 +116,11 @@ def main():
     # Test PDM-PCM conversion
     mixture, speech, noise = trainset[0]
     recovered_mix = pdm2pcm(mixture)
-    librosa.output.write_wav('results/recovered.wav', recovered_mix, sr, norm=True)
+    recovered_speech = pdm2pcm(speech)
+    recovered_noise = pdm2pcm(noise)
+    recovered = np.append(recovered_mix, recovered_speech)
+    recovered = np.append(recovered, recovered_noise)
+    librosa.output.write_wav('results/recovered.wav', recovered, sr)
 
     lengths = []
     for i in range(len(trainset)):
