@@ -60,7 +60,7 @@ class SeparationNetwork(nn.Module):
         self.hop = hop
         self.activation = activation
 
-        # Double transform
+        # Convolutional transform
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
 
         # Intialize transformation network parameter
@@ -209,6 +209,7 @@ def main():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
                                  net.parameters()), lr=args.learningrate,
                                  weight_decay=args.weightdecay)
+    criterion = SignalDistortionRatio()
     criterion = nn.BCEWithLogitsLoss()
 
     # Instantiate Visdom
