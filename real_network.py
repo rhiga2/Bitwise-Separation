@@ -255,7 +255,8 @@ def main():
                 pred = 2 * (logits.data.cpu().float().numpy() > 0) - 1
                 speech_estimate = asym_pdm2pcm(pred)
                 noise = sym_pdm2pcm(batch['noise'].numpy())
-                new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
+                new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate,
+                                                     noise, mixture - speech_estimate)
                 val_sdr += new_sdr
                 val_sir += new_sir
                 val_sar += new_sar
