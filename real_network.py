@@ -211,7 +211,7 @@ def main():
                                  net.parameters()), lr=args.learningrate,
                                  weight_decay=args.weightdecay)
     criterion = SignalDistortionRatio()
-    criterion = nn.BCEWithLogitsLoss()
+    # criterion = nn.BCEWithLogitsLoss()
 
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)
@@ -222,7 +222,7 @@ def main():
     sdr_history = []
     sar_history = []
     sir_history = []
-    output_period = 1
+    output_period = 5
     for epoch in progress_bar:
         train_loss = 0
         net.train()
