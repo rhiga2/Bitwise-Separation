@@ -62,6 +62,13 @@ class SeparationNetwork(nn.Module):
 
         # Double transform
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
+
+        # Intialize transformation network parameter
+        pdb.set_trace()
+        params = self.transform1d.parameters()
+        U, _, Vt = np.linalg.svd(params[0].data.numpy(), full_matrices=False)
+        params[0].data = torch.FloatTensor(Vt)
+
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
         self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
         self.conv_bn2 = nn.BatchNorm2d(num_channels)
@@ -170,11 +177,11 @@ def main():
     parser = argparse.ArgumentParser(description='Bitwise Network')
     parser.add_argument('--epochs', '-e', type=int, default=10000,
                         help='Number of epochs')
-    parser.add_argument('--learningrate', '-lr', type=float, default=1e-2,
+    parser.add_argument('--learningrate', '-lr', type=float, default=1e-3,
                         help='Learning Rate')
     parser.add_argument('--batchsize', '-b', type=int, default=4,
                         help='Batch Size')
-    parser.add_argument('--weightdecay', '-wd', type=float, default=1e-4, 
+    parser.add_argument('--weightdecay', '-wd', type=float, default=1e-4,
                         help='L2 Regularization Constant')
     args = parser.parse_args()
 
