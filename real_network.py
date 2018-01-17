@@ -36,7 +36,7 @@ class BitwiseDataset(Dataset):
             mix = mix[:self.length]
             speech = speech[:self.length]
             noise = noise[:self.length]
-        return {'noise': noise, 'speech': mix, 'mixture' : 2 * mix - 1}
+        return {'noise': noise, 'speech' : speech, 'mixture' : 2 * mix - 1}
 
 class Collate(object):
     def __init__(self, hop):
@@ -170,17 +170,19 @@ def main():
     parser = argparse.ArgumentParser(description='Bitwise Network')
     parser.add_argument('--epochs', '-e', type=int, default=10000,
                         help='Number of epochs')
-    parser.add_argument('--learningrate', '-lr', type=float, default=1e-3,
+    parser.add_argument('--learningrate', '-lr', type=float, default=1e-2,
                         help='Learning Rate')
     parser.add_argument('--batchsize', '-b', type=int, default=4,
                         help='Batch Size')
+    parser.add_argument('--weightdecay', '-wd', type=float, default=1e-4, 
+                        help='L2 Regularization Constant')
     args = parser.parse_args()
 
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    trainset = BitwiseDataset(datapath + '/train*.npz', length=1644800)
-    valset = BitwiseDataset(datapath + '/val*.npz', length=None)
+    trainset = BitwiseDataset(datapath + '/train*.npz', length=1644544)
+    valset = BitwiseDataset(datapath + '/val*.npz', length=1644544)
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
@@ -197,7 +199,7 @@ def main():
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
                                  net.parameters()), lr=args.learningrate,
-                                 weight_decay=1e-5)
+                                 weight_decay=args.weightdecay)
     criterion = nn.BCEWithLogitsLoss()
 
     # Instantiate Visdom
