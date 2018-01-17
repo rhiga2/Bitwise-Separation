@@ -86,6 +86,7 @@ def test3():
     train_noises, val_noises, test_noises = denoising_data.get_noise_files(noise_path, 12, 6, 3)
     trainset = DenoisingDataset(train_speeches, train_noises, transform=pcm2pdm)
 
+    pdb.set_trace()
     mixture, speech, noise = trainset[0]
     recovered_mix = pdm2pcm(mixture)
     recovered_speech = pdm2pcm(speech)
