@@ -92,6 +92,11 @@ def test3():
     recovered = np.append(recovered_mix, recovered_speech)
     librosa.output.write_wav('results/recovered.wav', recovered, sr, norm=True)
 
+    trainset = DenoisingDataset(train_speeches, train_noises)
+    mixture, speech, noise = trainset[0]
+    sample = np.append(mixture, speech)
+    librosa.output.write_wav('results/sample.wav', sample, sr, norm=True)
+
 def main():
     sr = 16000
     os = 64
