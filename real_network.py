@@ -280,7 +280,7 @@ def main():
                                   output_period)
 
         progress_bar.set_description('L:%.3f P:%.1f/%.1f/%.1f' % \
-              (train_loss, sdr, sir, sar))
+              (train_loss, val_sdr, val_sir, val_sar))
 
 if __name__ == '__main__':
     main()
