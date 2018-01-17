@@ -37,7 +37,7 @@ class BitwiseDataset(Dataset):
             mix = mix[start : self.length + start]
             speech = speech[start : self.length + start]
             noise = noise[start : self.length + start]
-        return {'noise': noise, 'speech' : speech, 'mixture' : 2 * mix - 1}
+        return {'noise': 2 * noise - 1, 'speech' : 2 * speech - 1, 'mixture' : 2 * mix - 1}
 
 class Collate(object):
     def __init__(self, hop):
@@ -211,8 +211,8 @@ def main():
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
                                  net.parameters()), lr=args.learningrate,
                                  weight_decay=args.weightdecay)
-    # criterion = SignalDistortionRatio()
-    criterion = nn.BCEWithLogitsLoss()
+
+    criterion = SignalDistortionRatio()
 
     # Instantiate Visdom
     vis = visdom.Visdom(port=5800)
@@ -230,9 +230,9 @@ def main():
         for batch_count, batch in enumerate(trainloader):
             x = Variable(batch['mixture'])
             y = Variable(batch['speech'])
-            logits = net(x).cpu()
+            estimates = net(x).cpu()
 
-            loss = criterion(logits, y)
+            loss = criterion(estimates, y)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -249,13 +249,13 @@ def main():
                 y = Variable(batch['speech'])
                 logits = net(x).cpu()
 
-                loss = criterion(logits, y)
+                loss = criterion(estimates, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
                 mixture =  sym_pdm2pcm(batch['mixture'].numpy())
-                speech = asym_pdm2pcm(batch['speech'].numpy())
-                pred = logits.data.cpu().float().numpy() > 0
+                speech = sym_pdm2pcm(batch['speech'].numpy())
+                pred = 2 * (logits.data.cpu().float().numpy() > 0) - 1
                 speech_estimate = asym_pdm2pcm(pred)
-                noise = asym_pdm2pcm(batch['noise'].numpy())
+                noise = sym_pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate, noise, noise)
                 val_sdr += new_sdr
                 val_sir += new_sir
