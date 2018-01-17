@@ -65,7 +65,6 @@ class SeparationNetwork(nn.Module):
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
 
         # Intialize transformation network parameter
-        pdb.set_trace()
         params = list(self.transform1d.parameters())
         window = np.sqrt(np.hanning(transform_size))
         fft = np.fft.fft(np.eye(transform_size))
