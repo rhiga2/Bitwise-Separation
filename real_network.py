@@ -66,8 +66,10 @@ class SeparationNetwork(nn.Module):
         # Intialize transformation network parameter
         pdb.set_trace()
         params = self.transform1d.parameters()
-        U, _, Vt = np.linalg.svd(params[0].data.numpy(), full_matrices=False)
-        params[0].data = torch.FloatTensor(Vt)
+        window = np.sqrt(np.hanning(ft_size))
+        fft = np.fft.fft(np.eye(ft_size))
+        fft = wn * fft
+        params[0].data = torch.FloatTensor(fft.unsqueeze(1))
 
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
         self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
