@@ -37,7 +37,7 @@ class BitwiseDataset(Dataset):
             mix = mix[start : self.length + start]
             speech = speech[start : self.length + start]
             noise = noise[start : self.length + start]
-        return {'noise': noise, 'speech' : speech, 'mixture' : 2 * mix - 1}
+        return {'noise': noise, 'speech' : mix, 'mixture' : 2 * mix - 1}
 
 class Collate(object):
     def __init__(self, hop):
@@ -55,7 +55,8 @@ class Collate(object):
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=3,
-                 hidden_sizes=[512, 512], hop=256, dropout=0., activation=F.relu):
+                 hidden_sizes=[512, 512], hop=256, dropout=0., activation=F.relu,
+                 fft_init=True):
         super(SeparationNetwork, self).__init__()
         self.transform_size = transform_size
         self.hop = hop
@@ -63,11 +64,12 @@ class SeparationNetwork(nn.Module):
 
         # Convolutional transform initialized to FFT
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
-        params = list(self.transform1d.parameters())
-        window = np.sqrt(np.hanning(transform_size))
-        fft = np.fft.fft(np.eye(transform_size))
-        fft = np.vstack((np.real(fft[:int(transform_size/2),:]), np.imag(fft[:int(transform_size/2),:])))
-        params[0].data = torch.FloatTensor(window * fft).unsqueeze(1)
+        if fft_init:
+            params = list(self.transform1d.parameters())
+            window = np.sqrt(np.hanning(transform_size))
+            fft = np.fft.fft(np.eye(transform_size))
+            fft = np.vstack((np.real(fft[:int(transform_size/2),:]), np.imag(fft[:int(transform_size/2),:])))
+            params[0].data = torch.FloatTensor(window * fft).unsqueeze(1)
 
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
         self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
@@ -80,8 +82,9 @@ class SeparationNetwork(nn.Module):
 
         # Convolutional transpose initialized to inverse FFT
         self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
-        params = list(self.conv_transpose.parameters())
-        params[0].data = torch.FloatTensor(window * np.linalg.pinv(fft).T).unsqueeze(1)
+        if fft_init:
+            params = list(self.conv_transpose.parameters())
+            params[0].data = torch.FloatTensor(window * np.linalg.pinv(fft).T).unsqueeze(1)
 
     def forward(self, x):
         # (batch, 1, time)
