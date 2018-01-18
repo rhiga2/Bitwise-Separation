@@ -81,7 +81,7 @@ class SeparationNetwork(nn.Module):
         # Convolutional transpose initialized to inverse FFT
         self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
         params = list(self.conv_transpose.parameters())
-        params[0].data = torch.FloatTensor(window * np.linalg.pinv(fft).T.unsqueeze(1))
+        params[0].data = torch.FloatTensor(window * np.linalg.pinv(fft).T).unsqueeze(1)
 
     def forward(self, x):
         # (batch, 1, time)
@@ -252,10 +252,10 @@ def main():
                 loss = criterion(estimates, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
                 mixture =  sym_pdm2pcm(batch['mixture'].numpy())
-                speech = sym_pdm2pcm(batch['speech'].numpy())
-                pred = 2 * (estimates.data.cpu().float().numpy() > 0) - 1
+                speech = asym_pdm2pcm(batch['speech'].numpy())
+                pred = estimates.data.cpu().float().numpy() > 0
                 speech_estimate = asym_pdm2pcm(pred)
-                noise = sym_pdm2pcm(batch['noise'].numpy())
+                noise = asym_pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate,
                                                      noise, mixture - speech_estimate)
                 val_sdr += new_sdr
