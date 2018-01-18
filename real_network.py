@@ -61,16 +61,13 @@ class SeparationNetwork(nn.Module):
         self.hop = hop
         self.activation = activation
 
-        # Convolutional transform
+        # Convolutional transform initialized to FFT
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
-
-        # Intialize transformation network parameter
         params = list(self.transform1d.parameters())
         window = np.sqrt(np.hanning(transform_size))
         fft = np.fft.fft(np.eye(transform_size))
         fft = np.vstack((np.real(fft[:int(transform_size/2),:]), np.imag(fft[:int(transform_size/2),:])))
-        fft = window * fft
-        params[0].data = torch.FloatTensor(fft).unsqueeze(1)
+        params[0].data = torch.FloatTensor(window * fft).unsqueeze(1)
 
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
         self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
@@ -80,7 +77,11 @@ class SeparationNetwork(nn.Module):
         self.linear1 = nn.Linear(num_channels * transform_size, 2 * transform_size)
         self.linear_bn1 = nn.BatchNorm1d(2 * transform_size)
         self.linear2 = nn.Linear(2 * transform_size, transform_size)
+
+        # Convolutional transpose initialized to inverse FFT
         self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
+        params = list(self.conv_transpose.parameters())
+        params[0].data = torch.FloatTensor(window * np.linalg.pinv(fft).T.unsqueeze(1))
 
     def forward(self, x):
         # (batch, 1, time)
