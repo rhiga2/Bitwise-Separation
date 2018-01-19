@@ -22,7 +22,7 @@ class BitwiseDataset(Dataset):
     def __init__(self, pattern, length=None, hop=256):
         self.files = glob2.glob(pattern)
         self.length = length
-        self.stride = stride
+        self.hop = hop
 
     def __len__(self):
         return len(self.files)
@@ -38,8 +38,8 @@ class BitwiseDataset(Dataset):
             mix = mix[start : self.length + start]
             speech = speech[start : self.length + start]
             noise = noise[start : self.length + start]
-        elif self.stride:
-            length = (len(mix) // hop) * hop
+        elif self.hop:
+            length = (len(mix) // self.hop) * self.hop
             mix = mix[:length]
             speech = speech[:length]
             noise = noise[:length]
@@ -56,13 +56,6 @@ class SeparationNetwork(nn.Module):
 
         # Convolutional transform initialized to FFT
         self.transform1d = nn.Conv1d(1, transform_size, transform_size, stride=hop)
-        if fft_init:
-            params = list(self.transform1d.parameters())
-            window = np.sqrt(np.hanning(transform_size))
-            fft = np.fft.fft(np.eye(transform_size))
-            fft = np.vstack((np.real(fft[:int(transform_size/2),:]), np.imag(fft[:int(transform_size/2),:])))
-            params[0].data = torch.FloatTensor(window * fft).unsqueeze(1)
-
         self.conv_bn1 = nn.BatchNorm1d(transform_size)
         self.smooth = nn.Conv2d(1, num_channels, 7, stride=1, padding=3)
         self.conv_bn2 = nn.BatchNorm2d(num_channels)
@@ -75,6 +68,14 @@ class SeparationNetwork(nn.Module):
         # Convolutional transpose initialized to inverse FFT
         self.conv_transpose = nn.ConvTranspose1d(transform_size, 1, transform_size, stride=hop)
         if fft_init:
+            # Intiialize transformation layer
+            params = list(self.transform1d.parameters())
+            window = np.sqrt(np.hanning(transform_size))
+            fft = np.fft.fft(np.eye(transform_size))
+            fft = np.vstack((np.real(fft[:int(transform_size/2),:]), np.imag(fft[:int(transform_size/2),:])))
+            params[0].data = torch.FloatTensor(window * fft).unsqueeze(1)
+
+            # Initialize inverse transformation layer
             params = list(self.conv_transpose.parameters())
             params[0].data = torch.FloatTensor(window * np.linalg.pinv(fft).T).unsqueeze(1)
 
@@ -182,18 +183,20 @@ def main():
                         help='Batch Size')
     parser.add_argument('--weightdecay', '-wd', type=float, default=0,
                         help='L2 Regularization Constant')
+    parser.add_argument('--hop', '-hp', type=int, default=256,
+                        help='Convolutional Transformation Stride')
     args = parser.parse_args()
 
     datapath = '/media/data/bitwise_pdm'
 
     # Dataset
-    trainset = BitwiseDataset(datapath + '/train*.npz', length=1644544)
-    valset = BitwiseDataset(datapath + '/val*.npz')
+    trainset = BitwiseDataset(datapath + '/train*.npz', length=1644544, hop=args.hop)
+    valset = BitwiseDataset(datapath + '/val*.npz', hop=args.hop)
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
     # Instantiate Network
-    net = SeparationNetwork()
+    net = SeparationNetwork(hop=args.hop)
     net = torch.nn.DataParallel(net, device_ids=[0])
     net = net.cuda().float()
 
@@ -249,7 +252,7 @@ def main():
                 speech = pdm2pcm(batch['speech'].numpy())
                 pred = estimates.data.cpu().float().numpy() > 0
                 speech_estimate = pdm2pcm(pred)
-                noise = asym_pdm2pcm(batch['noise'].numpy())
+                noise = pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate,
                                                      noise, mixture - speech_estimate)
                 val_sdr += new_sdr
