@@ -43,7 +43,7 @@ class BitwiseDataset(Dataset):
             mix = mix[:length]
             speech = speech[:length]
             noise = noise[:length]
-        return {'noise': noise, 'speech' : mix, 'mixture' : 2 * mix - 1}
+        return {'noise': noise, 'speech' : speech, 'mixture' : 2 * mix - 1}
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=3,

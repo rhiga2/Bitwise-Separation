@@ -6,6 +6,8 @@ from denoising_data import DenoisingDataset
 import matplotlib.pyplot as plt
 import mir_eval
 import pdb
+import random
+import glob2
 import numpy as np
 import matplotlib.pyplot as plt
 from deltasigma import *
@@ -74,14 +76,17 @@ def test3():
 
     pcm2pdm = PCM2PDM(sr, os)
     pdm2pcm = PDM2PCM(os)
+ 
+    # Load PDM data
+    files = glob2.glob('/media/data/bitwise_pdm/*.npz')
+    f = random.choice(files)
+    print('Example File : ', f)
+    data = np.load(f)
+    mixture = data['mixture']
+    speech = data['speech']
+    noise = data['noise']
 
-    speaker_path = '/media/data/timit-wav/train'
-    noise_path = '/media/data/noises-16k'
-    train_speeches, val_speeches, test_speeches = denoising_data.get_speech_files(speaker_path, 7, 7, 2)
-    train_noises, val_noises, test_noises = denoising_data.get_noise_files(noise_path, 12, 6, 3)
-    trainset = DenoisingDataset(train_speeches, train_noises, transform=pcm2pdm)
-
-    mixture, speech, noise = trainset[0]
+    # Turn PDM data to PCM data
     recovered_mix = pdm2pcm(mixture)
     recovered_speech = pdm2pcm(speech)
     recovered_noise = pdm2pcm(noise)
