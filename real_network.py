@@ -176,7 +176,7 @@ def main():
     parser = argparse.ArgumentParser(description='Bitwise Network')
     parser.add_argument('--epochs', '-e', type=int, default=10000,
                         help='Number of epochs')
-    parser.add_argument('--learningrate', '-lr', type=float, default=1e-3,
+    parser.add_argument('--learningrate', '-lr', type=float, default=1e-4,
                         help='Learning Rate')
     parser.add_argument('--batchsize', '-b', type=int, default=4,
                         help='Batch Size')
