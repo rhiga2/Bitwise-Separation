@@ -11,29 +11,24 @@ import matplotlib.pyplot as plt
 from deltasigma import *
 
 class PCM2PDM(object):
-    def __init__(self, old_sr, os = 64, order = 2, symmetric_output = False):
+    def __init__(self, old_sr, os = 64, order = 2):
         self.old_sr = old_sr
         self.os = os
         self.ntf = synthesizeNTF(order, os, 0)
-        self.symmetric_output = symmetric_output
 
     def __call__(self, pcm):
         u = pcm[np.floor(np.arange( 0, len(pcm), 1/self.os)).astype(int)]
         pdm = simulateDSM(u, self.ntf)[0]
-        if not self.symmetric_output:
-            return (pdm + 1) // 2
-        return pdm
+        return (pdm + 1) // 2
 
 class PDM2PCM(object):
     def __init__(self, os = 64, symmetric_input = False):
         self.os = os
         self.firwin = signal.firwin(2 * os, 1 / os)
-        self.symmetric_input = symmetric_input
 
     def __call__(self, pdm):
         os = self.os
-        if not self.symmetric_input:
-            pdm = 2 * pdm - 1
+        pdm = 2 * pdm - 1
         if len(pdm.shape) == 1:
             firwin = self.firwin
             output = signal.convolve(pdm, firwin)

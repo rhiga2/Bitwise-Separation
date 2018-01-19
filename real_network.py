@@ -19,9 +19,10 @@ import pdb
 Real network trained for denoising
 '''
 class BitwiseDataset(Dataset):
-    def __init__(self, pattern, length=None):
+    def __init__(self, pattern, length=None, hop=256):
         self.files = glob2.glob(pattern)
         self.length = length
+        self.stride = stride
 
     def __len__(self):
         return len(self.files)
@@ -37,21 +38,12 @@ class BitwiseDataset(Dataset):
             mix = mix[start : self.length + start]
             speech = speech[start : self.length + start]
             noise = noise[start : self.length + start]
+        elif self.stride:
+            length = (len(mix) // hop) * hop
+            mix = mix[:length]
+            speech = speech[:length]
+            noise = noise[:length]
         return {'noise': noise, 'speech' : mix, 'mixture' : 2 * mix - 1}
-
-class Collate(object):
-    def __init__(self, hop):
-        self.hop = hop
-
-    def __call__(self, batch):
-        minlength = min([(data['mixture'].shape[0] // self.hop) * self.hop for data in batch])
-        tensor = {}
-        for key in batch[0]:
-            keydata = [data[key][:minlength] for data in batch]
-            keydata = np.array(keydata)
-            tensor[key] = torch.FloatTensor(keydata)
-
-        return tensor
 
 class SeparationNetwork(nn.Module):
     def __init__(self, transform_size=1024, num_channels=3,
@@ -139,7 +131,7 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
         legend=dict(orientation='h', y=1.1, bgcolor='rgba(0,0,0,0)'),
         margin=dict(r=30, b=40, l=50, t=50),
         font=dict(family='Bell Gothic Std'),
-        xaxis=dict(autorange=True, title='Training samples'),
+        xaxis=dict(autorange=True, title='Epochs'),
         yaxis=dict(autorange=True, title='Loss'),
         title='Losses',
     )
@@ -166,7 +158,7 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
         legend=dict(orientation='h', y=1.05, bgcolor='rgba(0,0,0,0)'),
         margin=dict(r=30, b=40, l=50, t=50),
         font=dict(family='Bell Gothic Std'),
-        xaxis=dict(autorange=True, title='Training samples'),
+        xaxis=dict(autorange=True, title='Epochs'),
         yaxis=dict(autorange=True, title='dB'),
         title='BSS_EVAL'
     )
@@ -196,7 +188,7 @@ def main():
 
     # Dataset
     trainset = BitwiseDataset(datapath + '/train*.npz', length=1644544)
-    valset = BitwiseDataset(datapath + '/val*.npz', length=1644544)
+    valset = BitwiseDataset(datapath + '/val*.npz')
     trainloader = DataLoader(trainset, batch_size=args.batchsize, shuffle=True)
     valloader = DataLoader(valset, batch_size=1, shuffle=True)
 
@@ -207,8 +199,7 @@ def main():
 
     # Instantiate progress bar
     progress_bar = tqdm.trange(args.epochs)
-    sym_pdm2pcm = pdm_data.PDM2PCM(symmetric_input=True)
-    asym_pdm2pcm = pdm_data.PDM2PCM(symmetric_input=False)
+    pdm2pcm = pdm_data.PDM2PCM()
 
     # Instantiate optimizer and loss
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad,
@@ -254,10 +245,10 @@ def main():
 
                 loss = criterion(estimates, y)
                 val_loss += loss.data.cpu().float().numpy()[0]
-                mixture =  sym_pdm2pcm(batch['mixture'].numpy())
-                speech = asym_pdm2pcm(batch['speech'].numpy())
+                mixture =  pdm2pcm(batch['mixture'].numpy() > 0)
+                speech = pdm2pcm(batch['speech'].numpy())
                 pred = estimates.data.cpu().float().numpy() > 0
-                speech_estimate = asym_pdm2pcm(pred)
+                speech_estimate = pdm2pcm(pred)
                 noise = asym_pdm2pcm(batch['noise'].numpy())
                 new_sdr, new_sir, new_sar = evaluate(speech, speech_estimate,
                                                      noise, mixture - speech_estimate)
