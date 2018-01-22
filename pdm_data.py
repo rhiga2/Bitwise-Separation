@@ -24,7 +24,7 @@ class PCM2PDM(object):
         return (pdm + 1) // 2
 
 class PDM2PCM(object):
-    def __init__(self, os = 64, symmetric_input = False):
+    def __init__(self, os = 64):
         self.os = os
         self.firwin = signal.firwin(2 * os, 1 / os)
 
@@ -76,7 +76,7 @@ def test3():
 
     pcm2pdm = PCM2PDM(sr, os)
     pdm2pcm = PDM2PCM(os)
- 
+
     # Load PDM data
     files = glob2.glob('/media/data/bitwise_pdm/*.npz')
     f = random.choice(files)

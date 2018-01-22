@@ -114,7 +114,7 @@ class SignalDistortionRatio(nn.Module):
         return sdr
 
 def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
-    output_period = 10):
+    mixture, speech_estimate, output_period = 10):
     loss = [
         # Training sLoss
         dict(x=list(range(0, output_period * len(train_loss), output_period)),
@@ -164,6 +164,30 @@ def plot_loss_and_metrics(train_loss, val_loss, sdr, sar, sir, vis,
     )
 
     vis._send(dict(data=bss, layout=bss_layout, win='BSS', eid='Ryley BNN'))
+
+    # Audio waveform plot
+    audio = [
+
+        dict(x=list(range(mixture.shape[0])),
+             y=mixture, name='Mixture', hoverinfo='name+y+lines', line=dict(width=1),
+             mode='lines', type='scatter'),
+
+        dict(x=list(range(speech_estimate.shape[0])),
+             y=speech, name='Speech', hoverinfo='name+y+lines', line=dict(width=1),
+             mode='lines', type='scatter'),
+    ]
+
+    audio_layout = dict(
+        showlegend=True,
+        legend=dict(orientation='h', y=1.05, bgcolor='rgba(0,0,0,0)'),
+        margin=dict(r=30, b=40, l=50, t=50),
+        font=dict(family='Bell Gothic Std'),
+        xaxis=dict(autorange=True, title='Epochs'),
+        yaxis=dict(autorange=True, title='dB'),
+        title='BSS_EVAL'
+    )
+
+    vis._send(dict(data=audio, layout=audio_layout, win='Audio', eid='Ryley BNN'))
 
 def evaluate(speech, speech_estimate, noise, noise_estimate):
     references = np.concatenate((speech, noise), axis=0)
@@ -273,7 +297,7 @@ def main():
 
             plot_loss_and_metrics(train_loss_history, val_loss_history,
                                   val_sdr_history, val_sar_history, val_sir_history, vis,
-                                  output_period)
+                                  mixture, speech_estimate, output_period)
 
         progress_bar.set_description('L:%.3f P:%.1f/%.1f/%.1f' % \
               (train_loss, val_sdr, val_sir, val_sar))
